@@ -47,10 +47,10 @@ jobs:
           img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
           draw = ImageDraw.Draw(img)
 
-          bg_color = (6, 95, 70, 255) # Hijau Tua Natal (#065F46)
+          bg_color = (56, 189, 248, 255) # Biru Muda (#38BDF8)
           radius = int(size * 0.22)
           draw.rounded_rectangle([(0, 0), (size, size)], radius=radius, fill=bg_color)
-          draw.rounded_rectangle([(4, 4), (size - 4, size - 4)], radius=radius - 2, outline=(245, 158, 11, 255), width=int(size * 0.025))
+          draw.rounded_rectangle([(4, 4), (size - 4, size - 4)], radius=radius - 2, outline=(2, 132, 199, 255), width=int(size * 0.025))
 
           try:
               font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', int(size * 0.26))
@@ -69,7 +69,7 @@ jobs:
               p = os.path.join('android/app/src/main/res', folder)
               os.makedirs(p, exist_ok=True)
               img.resize((s, s)).save(os.path.join(p, 'ic_launcher.png'))
-          print('Custom PANAT Launcher Icons generated successfully!')
+          print('Custom Blue PANAT Launcher Icons generated successfully!')
           "
           flutter pub get
 
@@ -89,7 +89,7 @@ jobs:
         with:
           tag_name: v1.0.0
           name: PANAT Kas v1.0.0 by Natanael
-          body: "Aplikasi Kas Panitia Natal (PANAT) dengan sinkronisasi realtime Supabase dan enkripsi Zero-Knowledge."
+          body: "Aplikasi Kas Panitia Natal (PANAT) dengan sinkronisasi realtime Supabase dan tema Biru Muda."
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
