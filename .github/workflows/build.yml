@@ -35,6 +35,9 @@ jobs:
           mv pubspec.yaml.bak pubspec.yaml
           mv lib/main.dart.bak lib/main.dart
           
+          # Injeksi Izin Internet Resmi Android
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET"\/>' android/app/src/main/AndroidManifest.xml
+          
           pip install pillow
           python3 -c "
           import os
