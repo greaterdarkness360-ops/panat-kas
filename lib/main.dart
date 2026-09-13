@@ -168,22 +168,22 @@ class _PanatKasAppState extends State<PanatKasApp> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryGreen = Color(0xFF065F46);
+    const primaryBlue = Color(0xFF0284C7);
 
     final lightTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryGreen,
+        seedColor: primaryBlue,
         brightness: Brightness.light,
-        primary: const Color(0xFF065F46),
-        secondary: const Color(0xFFF59E0B),
+        primary: const Color(0xFF0284C7),
+        secondary: const Color(0xFF38BDF8),
         surface: Colors.white,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: const Color(0xFFF0F9FF),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF065F46),
-        foregroundColor: Colors.white,
+        backgroundColor: Color(0xFF38BDF8),
+        foregroundColor: Color(0xFF0C4A6E),
         elevation: 0,
       ),
     );
@@ -192,7 +192,7 @@ class _PanatKasAppState extends State<PanatKasApp> {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryGreen,
+        seedColor: primaryBlue,
         brightness: Brightness.dark,
         primary: const Color(0xFF10B981),
         secondary: const Color(0xFFFBBF24),
@@ -322,12 +322,11 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                 height: 75,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF065F46), Color(0xFF047857)],
+                    colors: [Color(0xFF0284C7), Color(0xFF38BDF8)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFF59E0B), width: 2),
                 ),
                 child: const Center(
                   child: Text(
@@ -362,7 +361,7 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                             child: ChoiceChip(
                               label: const Center(child: Text('Bendahara')),
                               selected: _selectedRole == 'Bendahara',
-                              selectedColor: const Color(0xFFA7F3D0),
+                              selectedColor: const Color(0xFFBAE6FD),
                               onSelected: (val) {
                                 if (val) setState(() => _selectedRole = 'Bendahara');
                               },
@@ -373,7 +372,7 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                             child: ChoiceChip(
                               label: const Center(child: Text('Wakil Bendahara')),
                               selected: _selectedRole == 'Wakil Bendahara',
-                              selectedColor: const Color(0xFFA7F3D0),
+                              selectedColor: const Color(0xFFBAE6FD),
                               onSelected: (val) {
                                 if (val) setState(() => _selectedRole = 'Wakil Bendahara');
                               },
@@ -408,7 +407,7 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                         height: 48,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF065F46),
+                            backgroundColor: const Color(0xFF0284C7),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
@@ -637,7 +636,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✓ Data "${record.title}" Rp ${formatRp(record.amount)} berhasil tersinkron!'),
-            backgroundColor: const Color(0xFF065F46),
+            backgroundColor: const Color(0xFF0284C7),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -722,7 +721,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF065F46)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
             onPressed: () {
               final n = nameCtrl.text.trim();
               if (n.isNotEmpty) {
@@ -758,12 +757,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
+                color: const Color(0xFF0284C7),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text(
                 'PANAT',
-                style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
             const SizedBox(width: 10),
@@ -771,7 +770,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Kas Panitia Natal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                Text(widget.userRole + '  |  by Natanael', style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w400, letterSpacing: 0.2)),
+                Text(widget.userRole + '  |  by Natanael', style: const TextStyle(fontSize: 9, color: Color(0xFF0369A1), fontWeight: FontWeight.w500, letterSpacing: 0.2)),
               ],
             ),
           ],
@@ -780,7 +779,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           IconButton(
             tooltip: 'Sinkronkan Data Awan',
             icon: _isSyncing
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Color(0xFF0C4A6E), strokeWidth: 2))
                 : const Icon(Icons.sync),
             onPressed: _fetchRecords,
           ),
@@ -792,19 +791,19 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Rekap'),
-          NavigationDestination(icon: Icon(Icons.arrow_downward), selectedIcon: Icon(Icons.arrow_circle_down), label: 'Pemasukan'),
-          NavigationDestination(icon: Icon(Icons.arrow_upward), selectedIcon: Icon(Icons.arrow_circle_up), label: 'Pengeluaran'),
+          NavigationDestination(icon: Icon(Icons.arrow_downward), selectedIcon: Icon(Icons.arrow_circle_down), label: 'Masuk'),
+          NavigationDestination(icon: Icon(Icons.arrow_upward), selectedIcon: Icon(Icons.arrow_circle_up), label: 'Keluar'),
           NavigationDestination(icon: Icon(Icons.analytics_outlined), selectedIcon: Icon(Icons.analytics), label: 'Analisis'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Laporan'),
         ],
       ),
       floatingActionButton: _tabIndex == 1 || _tabIndex == 2
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF065F46),
-              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF38BDF8),
+              foregroundColor: const Color(0xFF0C4A6E),
               onPressed: () => _openAddDialog(_tabIndex == 1),
               icon: const Icon(Icons.add),
-              label: Text(_tabIndex == 1 ? '+ Catat Pemasukan' : '+ Catat Pengeluaran'),
+              label: Text(_tabIndex == 1 ? 'Catat Pemasukan' : 'Catat Pengeluaran'),
             )
           : null,
     );
@@ -831,7 +830,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.w900,
-                      color: netBalance >= 0 ? const Color(0xFF065F46) : Colors.redAccent,
+                      color: netBalance >= 0 ? const Color(0xFF0284C7) : Colors.redAccent,
                     ),
                   ),
                   const Divider(height: 24),
@@ -948,7 +947,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ),
               IconButton(
                 tooltip: isIncome ? 'Tambah Pos Baru' : 'Tambah Seksi Baru',
-                icon: const Icon(Icons.add_circle, color: Color(0xFF065F46)),
+                icon: const Icon(Icons.add_circle, color: Color(0xFF0284C7)),
                 onPressed: () => _showAddSectionDialog(isIncome),
               ),
             ],
@@ -988,7 +987,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             if (item.note.isNotEmpty)
                               Text('Catatan: ' + item.note, style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
                             const SizedBox(height: 2),
-                            Text('Dicatat oleh: ' + item.recordedBy, style: const TextStyle(fontSize: 10, color: Color(0xFF065F46), fontWeight: FontWeight.bold)),
+                            Text('Dicatat oleh: ' + item.recordedBy, style: const TextStyle(fontSize: 10, color: Color(0xFF0284C7), fontWeight: FontWeight.bold)),
                           ],
                         ),
                         trailing: Row(
@@ -1209,7 +1208,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.security, color: Color(0xFF065F46)),
+                    Icon(Icons.security, color: Color(0xFF0284C7)),
                     SizedBox(width: 8),
                     Text('Keamanan Zero-Knowledge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   ],
@@ -1247,10 +1246,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         const SizedBox(height: 8),
         Card(
           child: SwitchListTile(
-            secondary: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode, color: const Color(0xFF065F46)),
+            secondary: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode, color: const Color(0xFF0284C7)),
             title: const Text('Mode Gelap (Dark Mode)'),
             value: widget.isDarkMode,
-            activeColor: const Color(0xFF065F46),
+            activeColor: const Color(0xFF0284C7),
             onChanged: widget.onToggleTheme,
           ),
         ),
@@ -1298,12 +1297,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     doc.writeln('<html><head><meta charset="utf-8"><title>Laporan Kas Panitia Natal</title>');
     doc.writeln('<style>');
     doc.writeln('body { font-family: sans-serif; padding: 25px; color: #0F172A; }');
-    doc.writeln('h1 { color: #065F46; margin-bottom: 2px; }');
+    doc.writeln('h1 { color: #0284C7; margin-bottom: 2px; }');
     doc.writeln('.sub { color: #64748B; font-size: 13px; margin-bottom: 20px; }');
     doc.writeln('.card { background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 15px; margin-bottom: 25px; }');
     doc.writeln('table { width: 100%; border-collapse: collapse; margin-top: 15px; }');
     doc.writeln('th, td { border: 1px solid #CBD5E1; padding: 8px; text-align: left; font-size: 12px; }');
-    doc.writeln('th { background-color: #A7F3D0; color: #065F46; font-weight: bold; }');
+    doc.writeln('th { background-color: #BAE6FD; color: #0C4A6E; font-weight: bold; }');
     doc.writeln('tr:nth-child(even) { background-color: #F8FAFC; }');
     doc.writeln('.income { color: #16A34A; font-weight: bold; }');
     doc.writeln('.expense { color: #DC2626; font-weight: bold; }');
@@ -1403,7 +1402,7 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
             ),
             Text(
               'Dicatat sebagai: ' + widget.userRole,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF065F46), fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
 
@@ -1463,14 +1462,14 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFF065F46)),
+                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0284C7)),
                     const SizedBox(width: 10),
                     Text(
                       'Tanggal: ' + DateFormat('dd MMMM yyyy').format(_date),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                     const Spacer(),
-                    const Text('Ubah', style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('Ubah', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
                 ),
               ),
@@ -1491,8 +1490,8 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF065F46),
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF38BDF8),
+                  foregroundColor: const Color(0xFF0C4A6E),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
