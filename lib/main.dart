@@ -98,6 +98,28 @@ class PanatRecord {
   });
 
   bool get isIncome => categoryType == 'pemasukan';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'categoryType': categoryType,
+        'section': section,
+        'title': title,
+        'amount': amount,
+        'date': date.toIso8601String(),
+        'note': note,
+        'recordedBy': recordedBy,
+      };
+
+  factory PanatRecord.fromJson(Map<String, dynamic> json) => PanatRecord(
+        id: json['id'] as String,
+        categoryType: json['categoryType'] as String,
+        section: json['section'] as String,
+        title: json['title'] as String,
+        amount: (json['amount'] as num).toDouble(),
+        date: DateTime.parse(json['date'] as String),
+        note: (json['note'] as String?) ?? '',
+        recordedBy: (json['recordedBy'] as String?) ?? 'Panitia',
+      );
 }
 
 class PanatSection {
@@ -451,8 +473,29 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   Future<void> _initData() async {
+    await _loadLocalCache();
     await _loadSections();
     await _fetchRecords();
+  }
+
+  Future<void> _loadLocalCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('panat_cached_records');
+    if (raw != null) {
+      try {
+        final List list = jsonDecode(raw);
+        setState(() {
+          _records = list.map((e) => PanatRecord.fromJson(e)).toList();
+          _isLoading = false;
+        });
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveLocalCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = jsonEncode(_records.map((e) => e.toJson()).toList());
+    await prefs.setString('panat_cached_records', raw);
   }
 
   Future<void> _loadSections() async {
@@ -533,34 +576,83 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         _isLoading = false;
         _isSyncing = false;
       });
+      await _saveLocalCache();
     } catch (e) {
       setState(() {
         _isLoading = false;
         _isSyncing = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status Sinkronisasi: $e'),
+            backgroundColor: Colors.orange[800],
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
   Future<void> _saveRecord(PanatRecord record) async {
-    final payload = jsonEncode({
-      'title': record.title,
-      'amount': record.amount,
-      'date': record.date.toIso8601String(),
-      'note': record.note,
+    setState(() {
+      final idx = _records.indexWhere((r) => r.id == record.id);
+      if (idx != -1) {
+        _records[idx] = record;
+      } else {
+        _records.insert(0, record);
+      }
     });
+    await _saveLocalCache();
 
-    final cipher = ZeroKnowledgeCrypto.encrypt(payload, widget.masterPin);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Menyimpan "${record.title}" ke awan...'),
+          duration: const Duration(milliseconds: 1500),
+        ),
+      );
+    }
 
-    await supabase.from('panat_records').upsert({
-      'id': record.id,
-      'category_type': record.categoryType,
-      'section': record.section,
-      'encrypted_data': cipher,
-      'recorded_by': record.recordedBy,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    });
+    try {
+      final payload = jsonEncode({
+        'title': record.title,
+        'amount': record.amount,
+        'date': record.date.toIso8601String(),
+        'note': record.note,
+      });
 
-    await _fetchRecords();
+      final cipher = ZeroKnowledgeCrypto.encrypt(payload, widget.masterPin);
+
+      await supabase.from('panat_records').upsert({
+        'id': record.id,
+        'category_type': record.categoryType,
+        'section': record.section,
+        'encrypted_data': cipher,
+        'recorded_by': record.recordedBy,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Data "${record.title}" Rp ${formatRp(record.amount)} berhasil tersinkron!'),
+            backgroundColor: const Color(0xFF065F46),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tersimpan di HP (Awan belum terhubung: $e)'),
+            backgroundColor: Colors.orange[800],
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _deleteRecord(String id) async {
@@ -568,6 +660,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     setState(() {
       _records.removeWhere((r) => r.id == id);
     });
+    await _saveLocalCache();
   }
 
   Future<void> _addSection(String name, bool isIncome) async {
@@ -654,6 +747,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       _buildDashboardTab(),
       _buildSectionListTab(true),
       _buildSectionListTab(false),
+      _buildAnalysisTab(),
       _buildExportAndSettingsTab(),
     ];
 
@@ -700,6 +794,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Rekap'),
           NavigationDestination(icon: Icon(Icons.arrow_downward), selectedIcon: Icon(Icons.arrow_circle_down), label: 'Pemasukan'),
           NavigationDestination(icon: Icon(Icons.arrow_upward), selectedIcon: Icon(Icons.arrow_circle_up), label: 'Pengeluaran'),
+          NavigationDestination(icon: Icon(Icons.analytics_outlined), selectedIcon: Icon(Icons.analytics), label: 'Analisis'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Laporan'),
         ],
       ),
@@ -940,6 +1035,164 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAnalysisTab() {
+    final incTotal = totalIncome;
+    final expTotal = totalExpense;
+
+    final incomeSections = _sections.where((s) => s.isIncome).map((s) {
+      final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      return MapEntry(s.name, sum);
+    }).where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final expenseSections = _sections.where((s) => !s.isIncome).map((s) {
+      final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      return MapEntry(s.name, sum);
+    }).where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ANALISIS RASIO KEUANGAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total Pemasukan: Rp ' + formatRp(incTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text('Rp ' + formatRp(expTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: (incTotal + expTotal) > 0 ? (incTotal / (incTotal + expTotal)) : 0.5,
+                    minHeight: 12,
+                    backgroundColor: Colors.red[300],
+                    valueColor: const AlwaysStoppedAnimation(Colors.green),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Pemasukan: ' + ((incTotal + expTotal) > 0 ? (incTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
+                      style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Pengeluaran: ' + ((incTotal + expTotal) > 0 ? (expTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
+                      style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text('PROPORSI POS PEMASUKAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        if (incomeSections.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: Text('Belum ada data pemasukan untuk dianalisis.', style: TextStyle(color: Colors.grey))),
+          )
+        else
+          ...incomeSections.map((entry) {
+            final pct = incTotal > 0 ? (entry.value / incTotal) : 0.0;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pct,
+                        minHeight: 6,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: const AlwaysStoppedAnimation(Colors.green),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text((pct * 100).toStringAsFixed(1) + '% dari total pemasukan', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        const Text('PROPORSI PENGELUARAN PER SEKSI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        if (expenseSections.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: Text('Belum ada data pengeluaran untuk dianalisis.', style: TextStyle(color: Colors.grey))),
+          )
+        else
+          ...expenseSections.map((entry) {
+            final pct = expTotal > 0 ? (entry.value / expTotal) : 0.0;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pct,
+                        minHeight: 6,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: const AlwaysStoppedAnimation(Colors.redAccent),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text((pct * 100).toStringAsFixed(1) + '% dari total belanja', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 40),
+      ],
     );
   }
 
