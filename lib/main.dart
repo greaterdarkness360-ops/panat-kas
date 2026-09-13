@@ -1236,7 +1236,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           child: ListTile(
             leading: const CircleAvatar(backgroundColor: Color(0xFFDBEAFE), child: Icon(Icons.description, color: Color(0xFF2563EB))),
             title: const Text('Ekspor ke Dokumen Word (.doc)', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Laporan pertanggungjawaban formal siap dicetak', style: TextStyle(fontSize: 12)),
+            subtitle: const Text('Laporan LPJ formal, daftar isi klik otomatis & tabel terpisah', style: TextStyle(fontSize: 12)),
             trailing: const Icon(Icons.share),
             onTap: _exportDoc,
           ),
@@ -1294,38 +1294,227 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Future<void> _exportDoc() async {
     final doc = StringBuffer();
-    doc.writeln('<html><head><meta charset="utf-8"><title>Laporan Kas Panitia Natal</title>');
-    doc.writeln('<style>');
-    doc.writeln('body { font-family: sans-serif; padding: 25px; color: #0F172A; }');
-    doc.writeln('h1 { color: #0284C7; margin-bottom: 2px; }');
-    doc.writeln('.sub { color: #64748B; font-size: 13px; margin-bottom: 20px; }');
-    doc.writeln('.card { background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 15px; margin-bottom: 25px; }');
-    doc.writeln('table { width: 100%; border-collapse: collapse; margin-top: 15px; }');
-    doc.writeln('th, td { border: 1px solid #CBD5E1; padding: 8px; text-align: left; font-size: 12px; }');
-    doc.writeln('th { background-color: #BAE6FD; color: #0C4A6E; font-weight: bold; }');
-    doc.writeln('tr:nth-child(even) { background-color: #F8FAFC; }');
-    doc.writeln('.income { color: #16A34A; font-weight: bold; }');
-    doc.writeln('.expense { color: #DC2626; font-weight: bold; }');
-    doc.writeln('</style></head><body>');
-    doc.writeln('<h1>PANITIA NATAL (PANAT)</h1>');
-    doc.writeln('<div class="sub">Laporan Keuangan & Rekapitulasi Kas • Pengelola: Bendahara & Wakil Bendahara • by Natanael • Tanggal Cetak: ' + DateFormat('dd MMMM yyyy HH:mm').format(DateTime.now()) + '</div>');
-    doc.writeln('<div class="card">');
-    doc.writeln('<p><strong>Total Pemasukan:</strong> Rp ' + formatRp(totalIncome) + '</p>');
-    doc.writeln('<p><strong>Total Pengeluaran:</strong> Rp ' + formatRp(totalExpense) + '</p>');
-    doc.writeln('<p><strong>SISA KAS BERSIH (SALDO RIIL):</strong> Rp ' + formatRp(netBalance) + '</p>');
-    doc.writeln('</div>');
-    doc.writeln('<h3>Rincian Pembukuan Kas</h3>');
-    doc.writeln('<table><tr><th>No</th><th>Tipe</th><th>Pos / Seksi</th><th>Keterangan / Nama</th><th>Tanggal</th><th>Jumlah</th><th>Pencatat</th></tr>');
+    final nowFormatted = DateFormat('dd MMMM yyyy HH:mm').format(DateTime.now());
 
-    for (int i = 0; i < _records.length; i++) {
-      final r = _records[i];
-      final type = r.isIncome ? 'Pemasukan' : 'Pengeluaran';
-      final typeClass = r.isIncome ? 'income' : 'expense';
-      final d = _formatDate(r.date);
-      doc.writeln('<tr><td>' + (i + 1).toString() + '</td><td class="' + typeClass + '">' + type + '</td><td>' + r.section + '</td><td><strong>' + r.title + '</strong></td><td>' + d + '</td><td class="' + typeClass + '">Rp ' + formatRp(r.amount) + '</td><td>' + r.recordedBy + '</td></tr>');
+    final incomeSections = _sections.where((s) => s.isIncome).toList();
+    final expenseSections = _sections.where((s) => !s.isIncome).toList();
+
+    doc.writeln('''<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Laporan Keuangan Panitia Natal</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+@page Section1 {
+  size: 8.27in 11.69in;
+  margin: 1in;
+  mso-header-margin: 0.5in;
+  mso-footer-margin: 0.5in;
+  mso-footer: f1;
+}
+div.Section1 { page: Section1; }
+body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; color: #0F172A; line-height: 1.4; font-size: 11pt; }
+h1 { color: #0284C7; font-size: 20pt; text-align: center; margin-bottom: 2px; text-transform: uppercase; font-weight: bold; }
+.sub-header { text-align: center; font-size: 10.5pt; color: #64748B; margin-bottom: 25px; }
+.toc-box { background-color: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 18px 24px; margin-bottom: 30px; }
+.toc-title { font-size: 13pt; font-weight: bold; color: #0C4A6E; border-bottom: 2px solid #BAE6FD; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; }
+.toc-item { margin: 6px 0; font-size: 10.5pt; }
+.toc-link { color: #0284C7; text-decoration: none; font-weight: 600; }
+.section-header { font-size: 14pt; color: #0C4A6E; font-weight: bold; border-left: 5px solid #0284C7; padding-left: 10px; margin-top: 30px; margin-bottom: 14px; text-transform: uppercase; }
+.subsection-header { font-size: 11.5pt; color: #0369A1; font-weight: bold; margin-top: 18px; margin-bottom: 6px; }
+.card-summary { background-color: #F0F9FF; border: 1.5px solid #BAE6FD; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 16px; }
+th, td { border: 1px solid #CBD5E1; padding: 6px 8px; text-align: left; font-size: 9.5pt; }
+th { background-color: #BAE6FD; color: #0C4A6E; font-weight: bold; }
+tr:nth-child(even) { background-color: #F8FAFC; }
+.num-col { text-align: right; font-variant-numeric: tabular-nums; }
+.subtotal-row { background-color: #E0F2FE; font-weight: bold; color: #0369A1; }
+.page-break { page-break-before: always; }
+.sign-table { width: 100%; border: none; margin-top: 40px; }
+.sign-table td { border: none; text-align: center; font-size: 11pt; padding: 10px; }
+</style>
+</head>
+<body>
+<div class="Section1">
+
+<h1>LAPORAN KEUANGAN PANITIA NATAL (PANAT)</h1>
+<div class="sub-header">
+  Buku Kas & Rekapitulasi Pertanggungjawaban Real-Time • Dikelola oleh Bendahara & Wakil Bendahara<br>
+  <span style="font-size: 9.5pt; color: #94A3B8;">by Natanael  |  Tanggal Cetak Dokumen: ''' + nowFormatted + '''</span>
+</div>
+
+<div class="toc-box">
+  <div class="toc-title">DAFTAR ISI LAPORAN PERTANGGUNGJAWABAN</div>
+  <div class="toc-item"><strong>1. BAGIAN I: REKAPITULASI UMUM KAS</strong> ................................................. <a href="#rekap-umum" class="toc-link">[Lihat Halaman]</a></div>
+  <div class="toc-item" style="margin-top: 10px;"><strong>2. BAGIAN II: RINCIAN POS PEMASUKAN KAS</strong></div>
+''');
+
+    for (int i = 0; i < incomeSections.length; i++) {
+      final s = incomeSections[i];
+      final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('  <div class="toc-item" style="padding-left: 20px;">• <a href="#pos-' + i.toString() + '" class="toc-link">' + s.name + '</a> (Rp ' + formatRp(sum) + ')</div>');
     }
 
-    doc.writeln('</table></body></html>');
+    doc.writeln('''  <div class="toc-item" style="margin-top: 10px;"><strong>3. BAGIAN III: RINCIAN PENGELUARAN PER SEKSI</strong></div>
+''');
+
+    for (int i = 0; i < expenseSections.length; i++) {
+      final s = expenseSections[i];
+      final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('  <div class="toc-item" style="padding-left: 20px;">• <a href="#seksi-' + i.toString() + '" class="toc-link">' + s.name + '</a> (Rp ' + formatRp(sum) + ')</div>');
+    }
+
+    doc.writeln('''  <div class="toc-item" style="margin-top: 10px;"><strong>4. BAGIAN IV: LEMBAR PENGESAHAN & TANDA TANGAN</strong> ......................... <a href="#pengesahan" class="toc-link">[Lihat Halaman]</a></div>
+</div>
+
+<div class="page-break"></div>
+
+<a name="rekap-umum" id="rekap-umum"></a>
+<div class="section-header">BAGIAN I: REKAPITULASI UMUM KAS PANITIA</div>
+
+<div class="card-summary">
+  <table style="border: none; margin: 0;">
+    <tr style="background: none;"><td style="border: none; font-size: 11pt; padding: 4px;"><strong>Total Seluruh Pemasukan</strong></td><td style="border: none; font-size: 11pt; text-align: right; color: #16A34A; font-weight: bold; padding: 4px;">Rp ''' + formatRp(totalIncome) + '''</td></tr>
+    <tr style="background: none;"><td style="border: none; font-size: 11pt; padding: 4px;"><strong>Total Seluruh Pengeluaran</strong></td><td style="border: none; font-size: 11pt; text-align: right; color: #DC2626; font-weight: bold; padding: 4px;">Rp ''' + formatRp(totalExpense) + '''</td></tr>
+    <tr style="background: none;"><td style="border: none; border-top: 2px solid #BAE6FD; font-size: 13pt; padding: 8px 4px 4px 4px;"><strong>SISA KAS BERSIH (SALDO RIIL)</strong></td><td style="border: none; border-top: 2px solid #BAE6FD; font-size: 14pt; text-align: right; color: #0284C7; font-weight: 900; padding: 8px 4px 4px 4px;">Rp ''' + formatRp(netBalance) + '''</td></tr>
+  </table>
+</div>
+
+<h4 style="color: #0C4A6E; margin-bottom: 6px;">Ringkasan Komparasi Seluruh Pos & Seksi:</h4>
+<table>
+  <tr><th>No</th><th>Pos Pemasukan</th><th class="num-col">Jumlah Masuk</th><th>Seksi Pengeluaran</th><th class="num-col">Jumlah Keluar</th></tr>
+''');
+
+    final int maxRows = incomeSections.length > expenseSections.length ? incomeSections.length : expenseSections.length;
+    for (int i = 0; i < maxRows; i++) {
+      final incName = i < incomeSections.length ? incomeSections[i].name : '-';
+      final incVal = i < incomeSections.length ? _records.where((r) => r.isIncome && r.section == incName).fold(0.0, (t, r) => t + r.amount) : 0.0;
+      final expName = i < expenseSections.length ? expenseSections[i].name : '-';
+      final expVal = i < expenseSections.length ? _records.where((r) => !r.isIncome && r.section == expName).fold(0.0, (t, r) => t + r.amount) : 0.0;
+
+      doc.writeln('  <tr><td>' + (i + 1).toString() + '</td><td>' + incName + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">' + (incVal > 0 ? 'Rp ' + formatRp(incVal) : '-') + '</td><td>' + expName + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">' + (expVal > 0 ? 'Rp ' + formatRp(expVal) : '-') + '</td></tr>');
+    }
+
+    doc.writeln('''  <tr class="subtotal-row"><td></td><td>TOTAL PEMASUKAN</td><td class="num-col">Rp ''' + formatRp(totalIncome) + '''</td><td>TOTAL PENGELUARAN</td><td class="num-col">Rp ''' + formatRp(totalExpense) + '''</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<div class="section-header">BAGIAN II: RINCIAN PEMASUKAN KAS (PER POS KEGIATAN)</div>
+<p style="font-size: 10pt; color: #64748B; margin-top: -6px;">Setiap pos pemasukan memiliki tabel pencatatan masing-masing lengkap dengan subtotal dan tanggal transaksi.</p>
+''');
+
+    for (int i = 0; i < incomeSections.length; i++) {
+      final s = incomeSections[i];
+      final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
+      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
+
+      doc.writeln('<a name="pos-' + i.toString() + '" id="pos-' + i.toString() + '"></a>');
+      doc.writeln('<div class="subsection-header">2.' + (i + 1).toString() + '. Pos: ' + s.name + ' <span style="font-size: 10pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' transaksi)</span></div>');
+
+      if (recs.isEmpty) {
+        doc.writeln('<p style="font-size: 9.5pt; color: #94A3B8; font-style: italic; margin-left: 10px;">Belum ada catatan transaksi pada pos ini.</p>');
+      } else {
+        doc.writeln('<table>');
+        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan / Nama Jemaat / Barang</th><th style="width: 90px;">Tanggal</th><th style="width: 80px;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 110px;">Jumlah (Rp)</th></tr>');
+
+        for (int j = 0; j < recs.length; j++) {
+          final r = recs[j];
+          final d = _formatDate(r.date);
+          doc.writeln('  <tr><td>' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td>' + d + '</td><td>' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+        }
+
+        doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col">Rp ' + formatRp(subtotal) + '</td></tr>');
+        doc.writeln('</table>');
+      }
+      doc.writeln('<div style="height: 10px;"></div>');
+    }
+
+    doc.writeln('''<div class="page-break"></div>
+
+<div class="section-header">BAGIAN III: RINCIAN PENGELUARAN (PER SEKSI KEPANITIAAN)</div>
+<p style="font-size: 10pt; color: #64748B; margin-top: -6px;">Setiap seksi kepanitiaan memiliki tabel rincian belanja masing-masing lengkap dengan subtotal dan tanggal transaksi.</p>
+''');
+
+    for (int i = 0; i < expenseSections.length; i++) {
+      final s = expenseSections[i];
+      final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
+      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
+
+      doc.writeln('<a name="seksi-' + i.toString() + '" id="seksi-' + i.toString() + '"></a>');
+      doc.writeln('<div class="subsection-header">3.' + (i + 1).toString() + '. ' + s.name + ' <span style="font-size: 10pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' transaksi)</span></div>');
+
+      if (recs.isEmpty) {
+        doc.writeln('<p style="font-size: 9.5pt; color: #94A3B8; font-style: italic; margin-left: 10px;">Belum ada catatan belanja pada seksi ini.</p>');
+      } else {
+        doc.writeln('<table>');
+        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan Belanja / Keperluan</th><th style="width: 90px;">Tanggal</th><th style="width: 80px;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 110px;">Jumlah (Rp)</th></tr>');
+
+        for (int j = 0; j < recs.length; j++) {
+          final r = recs[j];
+          final d = _formatDate(r.date);
+          doc.writeln('  <tr><td>' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td>' + d + '</td><td>' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+        }
+
+        doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #DC2626;">Rp ' + formatRp(subtotal) + '</td></tr>');
+        doc.writeln('</table>');
+      }
+      doc.writeln('<div style="height: 10px;"></div>');
+    }
+
+    doc.writeln('''<div class="page-break"></div>
+
+<a name="pengesahan" id="pengesahan"></a>
+<div class="section-header">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
+<p style="font-size: 11pt; margin-top: 10px;">
+  Demikian laporan pertanggungjawaban penerimaan kas dan realisasi pengeluaran Panitia Natal ini disusun dengan sebenar-benarnya secara transparan dan akuntabel.
+</p>
+
+<table class="sign-table">
+  <tr>
+    <td style="width: 50%;">
+      Dibuat oleh,<br>
+      <strong>Bendahara Panitia</strong><br><br><br><br><br>
+      ( __________________________ )
+    </td>
+    <td style="width: 50%;">
+      Diverifikasi oleh,<br>
+      <strong>Wakil Bendahara Panitia</strong><br><br><br><br><br>
+      ( __________________________ )
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="padding-top: 40px;">
+      Mengetahui & Menyetujui,<br>
+      <strong>Ketua Panitia Natal</strong><br><br><br><br><br>
+      ( __________________________ )
+    </td>
+  </tr>
+</table>
+
+<table id="hrdftrtbl" border="0" cellspacing="0" cellpadding="0" style="margin: 0;">
+  <tr>
+    <td>
+      <div style="mso-element:footer" id="f1">
+        <p class="MsoFooter" style="text-align:right; font-size:9pt; color:#64748B; font-family: Calibri, sans-serif;">
+          Laporan Kas Panitia Natal  |  Halaman <span style="mso-field-code: PAGE "></span> dari <span style="mso-field-code: NUMPAGES "></span>
+        </p>
+      </div>
+    </td>
+  </tr>
+</table>
+
+</div>
+</body>
+</html>''');
 
     try {
       final dir = await getTemporaryDirectory();
@@ -1334,197 +1523,3 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       await Share.shareXFiles([XFile(file.path)], text: 'Laporan Kas Panitia Natal (Dokumen Word) by Natanael');
     } catch (_) {}
   }
-}
-
-class AddPanatRecordSheet extends StatefulWidget {
-  final bool isIncome;
-  final List<String> sections;
-  final String? defaultSection;
-  final String userRole;
-  final Function(PanatRecord) onSave;
-
-  const AddPanatRecordSheet({
-    super.key,
-    required this.isIncome,
-    required this.sections,
-    this.defaultSection,
-    required this.userRole,
-    required this.onSave,
-  });
-
-  @override
-  State<AddPanatRecordSheet> createState() => _AddPanatRecordSheetState();
-}
-
-class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
-  final _titleCtrl = TextEditingController();
-  final _amountCtrl = TextEditingController();
-  final _noteCtrl = TextEditingController();
-
-  late String _selectedSection;
-  DateTime _date = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.defaultSection != null && widget.sections.contains(widget.defaultSection)) {
-      _selectedSection = widget.defaultSection!;
-    } else {
-      _selectedSection = widget.sections.isNotEmpty ? widget.sections.first : 'Umum';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        top: 20,
-        left: 20,
-        right: 20,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.isIncome ? 'Catat Pemasukan Kas' : 'Catat Pengeluaran Seksi',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Dicatat sebagai: ' + widget.userRole,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-
-            DropdownButtonFormField<String>(
-              value: _selectedSection,
-              decoration: InputDecoration(
-                labelText: widget.isIncome ? 'Pilih Pos Pemasukan' : 'Pilih Seksi Pengeluaran',
-                border: const OutlineInputBorder(),
-              ),
-              items: widget.sections.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedSection = val);
-              },
-            ),
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: _titleCtrl,
-              decoration: InputDecoration(
-                labelText: widget.isIncome ? 'Keterangan / Nama Jemaat / Barang *' : 'Keterangan Barang / Keperluan *',
-                hintText: widget.isIncome ? 'Contoh: Mie Gomak / Kel. R. Siahaan / Ade Saut' : 'Contoh: Kabel AUX / DP Kalender / Kue Basah',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: _amountCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Nominal Uang (Rp) *',
-                prefixText: 'Rp ',
-                hintText: '0',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            InkWell(
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2050),
-                );
-                if (d != null) {
-                  setState(() => _date = d);
-                }
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0284C7)),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Tanggal: ' + DateFormat('dd MMMM yyyy').format(_date),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                    const Spacer(),
-                    const Text('Ubah', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: _noteCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Catatan Tambahan (Opsional)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF38BDF8),
-                  foregroundColor: const Color(0xFF0C4A6E),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  final title = _titleCtrl.text.trim();
-                  final amount = double.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-
-                  if (title.isEmpty || amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Harap lengkapi Keterangan dan Nominal Uang!')),
-                    );
-                    return;
-                  }
-
-                  final newRec = PanatRecord(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    categoryType: widget.isIncome ? 'pemasukan' : 'pengeluaran',
-                    section: _selectedSection,
-                    title: title,
-                    amount: amount,
-                    date: _date,
-                    note: _noteCtrl.text.trim(),
-                    recordedBy: widget.userRole,
-                  );
-
-                  widget.onSave(newRec);
-                  Navigator.pop(context);
-                },
-                child: const Text('Simpan & Sinkronkan Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
