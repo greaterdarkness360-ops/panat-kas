@@ -10,7 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const String supabaseUrl = 'https://fobtdivzukzwkpwaowsh.supabase.co';
+const String supabaseUrl = 'https://fobtdlvzukzwkpwaowsh.supabase.co';
 const String supabaseAnonKey = 'sb_publishable_YlWeEiMcF2h4vnjHpJMuWw_lTiqcbzi';
 
 void main() async {
