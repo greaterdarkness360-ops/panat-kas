@@ -1523,3 +1523,197 @@ tr:nth-child(even) { background-color: #F8FAFC; }
       await Share.shareXFiles([XFile(file.path)], text: 'Laporan Kas Panitia Natal (Dokumen Word) by Natanael');
     } catch (_) {}
   }
+}
+
+class AddPanatRecordSheet extends StatefulWidget {
+  final bool isIncome;
+  final List<String> sections;
+  final String? defaultSection;
+  final String userRole;
+  final Function(PanatRecord) onSave;
+
+  const AddPanatRecordSheet({
+    super.key,
+    required this.isIncome,
+    required this.sections,
+    this.defaultSection,
+    required this.userRole,
+    required this.onSave,
+  });
+
+  @override
+  State<AddPanatRecordSheet> createState() => _AddPanatRecordSheetState();
+}
+
+class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
+  final _titleCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+
+  late String _selectedSection;
+  DateTime _date = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.defaultSection != null && widget.sections.contains(widget.defaultSection)) {
+      _selectedSection = widget.defaultSection!;
+    } else {
+      _selectedSection = widget.sections.isNotEmpty ? widget.sections.first : 'Umum';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.isIncome ? 'Catat Pemasukan Kas' : 'Catat Pengeluaran Seksi',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Dicatat sebagai: ' + widget.userRole,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              value: _selectedSection,
+              decoration: InputDecoration(
+                labelText: widget.isIncome ? 'Pilih Pos Pemasukan' : 'Pilih Seksi Pengeluaran',
+                border: const OutlineInputBorder(),
+              ),
+              items: widget.sections.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedSection = val);
+              },
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _titleCtrl,
+              decoration: InputDecoration(
+                labelText: widget.isIncome ? 'Keterangan / Nama Jemaat / Barang *' : 'Keterangan Barang / Keperluan *',
+                hintText: widget.isIncome ? 'Contoh: Mie Gomak / Kel. R. Siahaan / Ade Saut' : 'Contoh: Kabel AUX / DP Kalender / Kue Basah',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _amountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Nominal Uang (Rp) *',
+                prefixText: 'Rp ',
+                hintText: '0',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            InkWell(
+              onTap: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _date,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2050),
+                );
+                if (d != null) {
+                  setState(() => _date = d);
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Tanggal: ' + DateFormat('dd MMMM yyyy').format(_date),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    const Spacer(),
+                    const Text('Ubah', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _noteCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Catatan Tambahan (Opsional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF38BDF8),
+                  foregroundColor: const Color(0xFF0C4A6E),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  final title = _titleCtrl.text.trim();
+                  final amount = double.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
+                  if (title.isEmpty || amount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Harap lengkapi Keterangan dan Nominal Uang!')),
+                    );
+                    return;
+                  }
+
+                  final newRec = PanatRecord(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    categoryType: widget.isIncome ? 'pemasukan' : 'pengeluaran',
+                    section: _selectedSection,
+                    title: title,
+                    amount: amount,
+                    date: _date,
+                    note: _noteCtrl.text.trim(),
+                    recordedBy: widget.userRole,
+                  );
+
+                  widget.onSave(newRec);
+                  Navigator.pop(context);
+                },
+                child: const Text('Simpan & Sinkronkan Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
