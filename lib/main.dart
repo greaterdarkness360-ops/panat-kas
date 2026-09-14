@@ -1397,7 +1397,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         footer: (pw.Context ctx) {
           return pw.Container(
             alignment: pw.Alignment.centerRight,
-            margin: const pw.EdgeInsets.top(8),
+            margin: const pw.EdgeInsets.only(top: 8),
             child: pw.Text(
               'Halaman ' + ctx.pageNumber.toString() + ' dari ' + ctx.pagesCount.toString(),
               style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
@@ -1667,7 +1667,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   e.value.recordedBy,
                   'Rp ' + formatRp(e.value.amount),
                 ]).toList();
-                tableData.add(['', 'Subtotal ' + s.name, '', '', 'Rp ' + formatRp(subtotal)]);
+                tableData.add(['', 'Subtotal ${s.name}', '', '', 'Rp ' + formatRp(subtotal)]);
 
                 content.add(
                   pw.Table.fromTextArray(
@@ -1703,7 +1703,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 e.value.recordedBy,
                 'Rp ' + formatRp(e.value.amount),
               ]).toList();
-              tableData.add(['', 'Subtotal ' + s.name, '', '', 'Rp ' + formatRp(subtotal)]);
+              tableData.add(['', 'Subtotal ${s.name}', '', '', 'Rp ' + formatRp(subtotal)]);
 
               content.add(
                 pw.Table.fromTextArray(
