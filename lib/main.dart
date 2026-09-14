@@ -1354,7 +1354,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 div.Section1 { page: Section1; }
 body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #0F172A; line-height: 1.45; font-size: 10.5pt; }
 
-/* KOP FORMAL */
+/* KOP LAPORAN */
 .kop-box { text-align: center; border-bottom: 2.5px solid #0284C7; padding-bottom: 12px; margin-bottom: 20px; }
 .kop-title { font-size: 17pt; font-weight: bold; color: #0284C7; text-transform: uppercase; margin: 0; }
 .kop-subtitle { font-size: 11pt; font-weight: 600; color: #334155; margin: 4px 0; }
@@ -1387,7 +1387,6 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
 /* TANDA TANGAN */
 .sign-table { width: 100%; border: none; margin-top: 40px; page-break-inside: avoid; }
 .sign-table td { border: none; text-align: center; font-size: 10pt; padding: 8px 4px; }
-.page-break { page-break-before: always; }
 </style>
 </head>
 <body>
@@ -1416,7 +1415,7 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
   </table>
 </div>
 
-<!-- DAFTAR ISI INTERAKTIF RAPI (TABEL TANPA TITIK MANUAL) -->
+<!-- DAFTAR ISI INTERAKTIF RAPI -->
 <div class="toc-card">
   <div class="toc-header">DAFTAR ISI LAPORAN</div>
   <table class="toc-tbl">
@@ -1457,6 +1456,8 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
   </table>
 </div>
 
+<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
+
 <!-- BAGIAN I: REKAPITULASI UMUM -->
 <a name="bagian-1" id="bagian-1"></a>
 <div class="part-banner">BAGIAN I: REKAPITULASI UMUM KAS</div>
@@ -1475,7 +1476,7 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
     for (var s in _sections.where((s) => s.isIncome)) {
       final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
       final sum = recs.fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('  <tr><td style="text-align: center;">' + incNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(sum) + '</td></tr>');
+      doc.writeln('  <tr><td style="text-align: center;">' + incNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #16A34A; font-weight: 600;">' + (sum > 0 ? 'Rp ' + formatRp(sum) : '-') + '</td></tr>');
       incNum++;
     }
 
@@ -1499,7 +1500,7 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
     for (var s in _sections.where((s) => !s.isIncome)) {
       final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
       final sum = recs.fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('  <tr><td style="text-align: center;">' + expNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(sum) + '</td></tr>');
+      doc.writeln('  <tr><td style="text-align: center;">' + expNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #DC2626; font-weight: 600;">' + (sum > 0 ? 'Rp ' + formatRp(sum) : '-') + '</td></tr>');
       expNum++;
     }
 
@@ -1508,6 +1509,8 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
     <td class="num-col" style="color: #DC2626;">Rp ''' + formatRp(totalExpense) + '''</td>
   </tr>
 </table>
+
+<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
 
 <!-- BAGIAN II: RINCIAN PEMASUKAN (HANYA POS YANG ADA TRANSAKSINYA) -->
 <a name="bagian-2" id="bagian-2"></a>
@@ -1525,31 +1528,53 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
         doc.writeln('<a name="pos-' + i.toString() + '" id="pos-' + i.toString() + '"></a>');
         doc.writeln('<div class="section-badge">Pos: ' + s.name + ' <span style="font-size: 9.5pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' catatan)</span></div>');
 
-        // Jika Pos adalah Kalender Jemaat, bagi tabel berdasarkan 4 Sektor
+        // Jika Pos adalah Kalender Jemaat
         if (s.name.toLowerCase().contains('kalender')) {
           final sectorList = ['Sektor Senin', 'Sektor Selasa', 'Sektor Rabu', 'Sektor Kamis'];
-          for (int secIdx = 0; secIdx < sectorList.length; secIdx++) {
-            final secName = sectorList[secIdx];
-            final secRecs = recs.where((r) => r.subCategory == secName).toList();
-            final secSubtotal = secRecs.fold(0.0, (t, r) => t + r.amount);
+          final hasSectors = recs.any((r) => sectorList.contains(r.subCategory));
 
-            doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 8px; margin-bottom: 4px;">• ' + secName + ' (' + secRecs.length.toString() + ' keluarga)</div>');
+          if (hasSectors) {
+            for (var secName in sectorList) {
+              final secRecs = recs.where((r) => r.subCategory == secName).toList();
+              if (secRecs.isNotEmpty) {
+                final secSubtotal = secRecs.fold(0.0, (t, r) => t + r.amount);
+                doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 10px; margin-bottom: 4px;">• ' + secName + ' (' + secRecs.length.toString() + ' keluarga)</div>');
+                doc.writeln('<table class="report-tbl">');
+                doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
+                for (int j = 0; j < secRecs.length; j++) {
+                  final r = secRecs[j];
+                  final d = _formatDate(r.date);
+                  doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+                }
+                doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + secName + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(secSubtotal) + '</td></tr>');
+                doc.writeln('</table>');
+              }
+            }
 
-            if (secRecs.isEmpty) {
-              doc.writeln('<p style="font-size: 9pt; color: #94A3B8; font-style: italic; margin-left: 10px; margin-bottom: 8px;">Belum ada setoran masuk untuk ' + secName + '.</p>');
-            } else {
+            final unassigned = recs.where((r) => !sectorList.contains(r.subCategory)).toList();
+            if (unassigned.isNotEmpty) {
+              final unassignedSubtotal = unassigned.fold(0.0, (t, r) => t + r.amount);
+              doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 10px; margin-bottom: 4px;">• Sektor Lainnya / Umum (' + unassigned.length.toString() + ' keluarga)</div>');
               doc.writeln('<table class="report-tbl">');
               doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
-
-              for (int j = 0; j < secRecs.length; j++) {
-                final r = secRecs[j];
+              for (int j = 0; j < unassigned.length; j++) {
+                final r = unassigned[j];
                 final d = _formatDate(r.date);
                 doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
               }
-
-              doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + secName + ':</td><td class="num-col">Rp ' + formatRp(secSubtotal) + '</td></tr>');
+              doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal:</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(unassignedSubtotal) + '</td></tr>');
               doc.writeln('</table>');
             }
+          } else {
+            doc.writeln('<table class="report-tbl">');
+            doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
+            for (int j = 0; j < recs.length; j++) {
+              final r = recs[j];
+              final d = _formatDate(r.date);
+              doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+            }
+            doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(subtotal) + '</td></tr>');
+            doc.writeln('</table>');
           }
           doc.writeln('<div style="text-align: right; font-weight: bold; font-size: 10.5pt; color: #0369A1; margin-bottom: 16px; border-top: 1.5px dashed #BAE6FD; padding-top: 6px;">TOTAL KALENDER SELURUH SEKTOR: Rp ' + formatRp(subtotal) + '</div>');
         } else {
@@ -1568,7 +1593,9 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
       }
     }
 
-    doc.writeln('''<!-- BAGIAN III: RINCIAN PENGELUARAN (HANYA SEKSI YANG ADA TRANSAKSINYA) -->
+    doc.writeln('''<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
+
+<!-- BAGIAN III: RINCIAN PENGELUARAN (HANYA SEKSI YANG ADA TRANSAKSINYA) -->
 <a name="bagian-3" id="bagian-3"></a>
 <div class="part-banner">BAGIAN III: RINCIAN BELANJA PER SEKSI</div>
 ''');
@@ -1597,8 +1624,9 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
       }
     }
 
-    doc.writeln('''<!-- BAGIAN IV: LEMBAR PENGESAHAN -->
-<div class="page-break"></div>
+    doc.writeln('''<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
+
+<!-- BAGIAN IV: LEMBAR PENGESAHAN -->
 <a name="bagian-4" id="bagian-4"></a>
 <div class="part-banner">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
 <p style="font-size: 10.5pt; margin-top: 10px;">
