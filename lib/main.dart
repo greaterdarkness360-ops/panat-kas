@@ -80,6 +80,7 @@ class PanatRecord {
   final String id;
   final String categoryType;
   final String section;
+  final String subCategory;
   final String title;
   final double amount;
   final DateTime date;
@@ -90,6 +91,7 @@ class PanatRecord {
     required this.id,
     required this.categoryType,
     required this.section,
+    this.subCategory = '',
     required this.title,
     required this.amount,
     required this.date,
@@ -103,6 +105,7 @@ class PanatRecord {
         'id': id,
         'categoryType': categoryType,
         'section': section,
+        'subCategory': subCategory,
         'title': title,
         'amount': amount,
         'date': date.toIso8601String(),
@@ -114,6 +117,7 @@ class PanatRecord {
         id: json['id'] as String,
         categoryType: json['categoryType'] as String,
         section: json['section'] as String,
+        subCategory: (json['subCategory'] as String?) ?? '',
         title: json['title'] as String,
         amount: (json['amount'] as num).toDouble(),
         date: DateTime.parse(json['date'] as String),
@@ -529,7 +533,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   List<PanatSection> _getDefaultSections() {
     return [
-      PanatSection(id: 'inc_1', name: 'Kalender Jemaat (Sektor)', isIncome: true),
+      PanatSection(id: 'inc_1', name: 'Kalender Jemaat', isIncome: true),
       PanatSection(id: 'inc_2', name: 'Aksi Dana (Bazar/Makanan)', isIncome: true),
       PanatSection(id: 'inc_3', name: 'Kolekte Ibadah Muda-Mudi', isIncome: true),
       PanatSection(id: 'inc_4', name: 'Uang Natal & Kalender Muda-Mudi', isIncome: true),
@@ -560,6 +564,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               id: r['id'] as String,
               categoryType: r['category_type'] as String,
               section: r['section'] as String,
+              subCategory: (json['subCategory'] as String?) ?? '',
               title: json['title'] as String,
               amount: (json['amount'] as num).toDouble(),
               date: DateTime.parse(json['date'] as String),
@@ -619,6 +624,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         'amount': record.amount,
         'date': record.date.toIso8601String(),
         'note': record.note,
+        'subCategory': record.subCategory,
       });
 
       final cipher = ZeroKnowledgeCrypto.encrypt(payload, widget.masterPin);
@@ -983,7 +989,25 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 4),
-                            Text(item.section + ' • ' + _formatDate(item.date), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                            Row(
+                              children: [
+                                if (item.subCategory.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFBAE6FD),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      item.subCategory,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                                    ),
+                                  ),
+                                ],
+                                Text(item.section + ' • ' + _formatDate(item.date), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              ],
+                            ),
                             if (item.note.isNotEmpty)
                               Text('Catatan: ' + item.note, style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
                             const SizedBox(height: 2),
@@ -1275,13 +1299,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Future<void> _exportCsv() async {
     final csv = StringBuffer();
-    csv.writeln('No,Tipe,Pos/Seksi,Keterangan/Nama,Tanggal,Jumlah (Rp),Pencatat,Catatan');
+    csv.writeln('No,Tipe,Pos/Seksi,Sektor/Sub,Keterangan/Nama,Tanggal,Jumlah (Rp),Pencatat,Catatan');
 
     for (int i = 0; i < _records.length; i++) {
       final r = _records[i];
       final type = r.isIncome ? 'Pemasukan' : 'Pengeluaran';
       final d = _formatDate(r.date);
-      csv.writeln((i + 1).toString() + ',"' + type + '","' + r.section + '","' + r.title + '","' + d + '",' + r.amount.toString() + ',"' + r.recordedBy + '","' + r.note.replaceAll('"', '""') + '"');
+      csv.writeln((i + 1).toString() + ',"' + type + '","' + r.section + '","' + r.subCategory + '","' + r.title + '","' + d + '",' + r.amount.toString() + ',"' + r.recordedBy + '","' + r.note.replaceAll('"', '""') + '"');
     }
 
     try {
@@ -1296,13 +1320,20 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final doc = StringBuffer();
     final nowFormatted = DateFormat('dd MMMM yyyy HH:mm').format(DateTime.now());
 
-    final incomeSections = _sections.where((s) => s.isIncome).toList();
-    final expenseSections = _sections.where((s) => !s.isIncome).toList();
+    final activeIncomeSections = _sections.where((s) {
+      if (!s.isIncome) return false;
+      return _records.any((r) => r.isIncome && r.section == s.name);
+    }).toList();
+
+    final activeExpenseSections = _sections.where((s) {
+      if (s.isIncome) return false;
+      return _records.any((r) => !r.isIncome && r.section == s.name);
+    }).toList();
 
     doc.writeln('''<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
 <meta charset="utf-8">
-<title>Laporan Keuangan Panitia Natal</title>
+<title>Laporan Pertanggungjawaban Kas Panitia Natal</title>
 <!--[if gte mso 9]>
 <xml>
 <w:WordDocument>
@@ -1315,167 +1346,263 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 <style>
 @page Section1 {
   size: 8.27in 11.69in;
-  margin: 1in;
-  mso-header-margin: 0.5in;
-  mso-footer-margin: 0.5in;
+  margin: 0.8in;
+  mso-header-margin: 0.4in;
+  mso-footer-margin: 0.4in;
   mso-footer: f1;
 }
 div.Section1 { page: Section1; }
-body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; color: #0F172A; line-height: 1.4; font-size: 11pt; }
-h1 { color: #0284C7; font-size: 20pt; text-align: center; margin-bottom: 2px; text-transform: uppercase; font-weight: bold; }
-.sub-header { text-align: center; font-size: 10.5pt; color: #64748B; margin-bottom: 25px; }
-.toc-box { background-color: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 18px 24px; margin-bottom: 30px; }
-.toc-title { font-size: 13pt; font-weight: bold; color: #0C4A6E; border-bottom: 2px solid #BAE6FD; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; }
-.toc-item { margin: 6px 0; font-size: 10.5pt; }
+body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #0F172A; line-height: 1.45; font-size: 10.5pt; }
+
+/* KOP FORMAL */
+.kop-box { text-align: center; border-bottom: 2.5px solid #0284C7; padding-bottom: 12px; margin-bottom: 20px; }
+.kop-title { font-size: 17pt; font-weight: bold; color: #0284C7; text-transform: uppercase; margin: 0; }
+.kop-subtitle { font-size: 11pt; font-weight: 600; color: #334155; margin: 4px 0; }
+.kop-meta { font-size: 9pt; color: #64748B; }
+
+/* SALDO UTAMA */
+.saldo-card { background-color: #F0F9FF; border: 1.5px solid #7DD3FC; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; }
+.saldo-label { font-size: 10pt; font-weight: bold; color: #0369A1; text-transform: uppercase; letter-spacing: 0.5px; }
+.saldo-val { font-size: 22pt; font-weight: 900; color: #0284C7; margin: 4px 0 8px 0; }
+
+/* DAFTAR ISI INTERAKTIF */
+.toc-card { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 14px 18px; margin-bottom: 25px; }
+.toc-header { font-size: 11pt; font-weight: bold; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; }
+.toc-tbl { width: 100%; border: none; margin: 0; }
+.toc-tbl td { border: none; padding: 3.5px 0; font-size: 9.5pt; }
 .toc-link { color: #0284C7; text-decoration: none; font-weight: 600; }
-.section-header { font-size: 14pt; color: #0C4A6E; font-weight: bold; border-left: 5px solid #0284C7; padding-left: 10px; margin-top: 30px; margin-bottom: 14px; text-transform: uppercase; }
-.subsection-header { font-size: 11.5pt; color: #0369A1; font-weight: bold; margin-top: 18px; margin-bottom: 6px; }
-.card-summary { background-color: #F0F9FF; border: 1.5px solid #BAE6FD; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
-table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 16px; }
-th, td { border: 1px solid #CBD5E1; padding: 6px 8px; text-align: left; font-size: 9.5pt; }
-th { background-color: #BAE6FD; color: #0C4A6E; font-weight: bold; }
-tr:nth-child(even) { background-color: #F8FAFC; }
+
+/* BANNER BAGIAN */
+.part-banner { background-color: #0284C7; color: #FFFFFF; font-size: 11pt; font-weight: bold; padding: 6px 12px; border-radius: 4px; margin-top: 24px; margin-bottom: 12px; text-transform: uppercase; }
+.section-badge { font-size: 10.5pt; font-weight: bold; color: #0369A1; margin-top: 14px; margin-bottom: 6px; }
+
+/* TABEL DATA */
+table.report-tbl { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 16px; }
+table.report-tbl th, table.report-tbl td { border: 1px solid #CBD5E1; padding: 6px 8px; font-size: 9.5pt; text-align: left; }
+table.report-tbl th { background-color: #E0F2FE; color: #0C4A6E; font-weight: bold; text-align: center; }
+table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
 .num-col { text-align: right; font-variant-numeric: tabular-nums; }
-.subtotal-row { background-color: #E0F2FE; font-weight: bold; color: #0369A1; }
+.subtotal-row { background-color: #F0F9FF; font-weight: bold; color: #0369A1; }
+
+/* TANDA TANGAN */
+.sign-table { width: 100%; border: none; margin-top: 40px; page-break-inside: avoid; }
+.sign-table td { border: none; text-align: center; font-size: 10pt; padding: 8px 4px; }
 .page-break { page-break-before: always; }
-.sign-table { width: 100%; border: none; margin-top: 40px; }
-.sign-table td { border: none; text-align: center; font-size: 11pt; padding: 10px; }
 </style>
 </head>
 <body>
 <div class="Section1">
 
-<h1>LAPORAN KEUANGAN PANITIA NATAL (PANAT)</h1>
-<div class="sub-header">
-  Buku Kas & Rekapitulasi Pertanggungjawaban Real-Time • Dikelola oleh Bendahara & Wakil Bendahara<br>
-  <span style="font-size: 9.5pt; color: #94A3B8;">by Natanael  |  Tanggal Cetak Dokumen: ''' + nowFormatted + '''</span>
+<!-- KOP LAPORAN -->
+<div class="kop-box">
+  <div class="kop-title">PANITIA NATAL (PANAT)</div>
+  <div class="kop-subtitle">LAPORAN PERTANGGUNGJAWABAN PENERIMAAN DAN PENGELUARAN KAS</div>
+  <div class="kop-meta">Dikelola oleh: Bendahara & Wakil Bendahara • Sistem Kas: by Natanael<br>Tanggal Cetak Dokumen: ''' + nowFormatted + ''' WIB</div>
 </div>
 
-<div class="toc-box">
-  <div class="toc-title">DAFTAR ISI LAPORAN PERTANGGUNGJAWABAN</div>
-  <div class="toc-item"><strong>1. BAGIAN I: REKAPITULASI UMUM KAS</strong> ................................................. <a href="#rekap-umum" class="toc-link">[Lihat Halaman]</a></div>
-  <div class="toc-item" style="margin-top: 10px;"><strong>2. BAGIAN II: RINCIAN POS PEMASUKAN KAS</strong></div>
-''');
-
-    for (int i = 0; i < incomeSections.length; i++) {
-      final s = incomeSections[i];
-      final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('  <div class="toc-item" style="padding-left: 20px;">• <a href="#pos-' + i.toString() + '" class="toc-link">' + s.name + '</a> (Rp ' + formatRp(sum) + ')</div>');
-    }
-
-    doc.writeln('''  <div class="toc-item" style="margin-top: 10px;"><strong>3. BAGIAN III: RINCIAN PENGELUARAN PER SEKSI</strong></div>
-''');
-
-    for (int i = 0; i < expenseSections.length; i++) {
-      final s = expenseSections[i];
-      final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('  <div class="toc-item" style="padding-left: 20px;">• <a href="#seksi-' + i.toString() + '" class="toc-link">' + s.name + '</a> (Rp ' + formatRp(sum) + ')</div>');
-    }
-
-    doc.writeln('''  <div class="toc-item" style="margin-top: 10px;"><strong>4. BAGIAN IV: LEMBAR PENGESAHAN & TANDA TANGAN</strong> ......................... <a href="#pengesahan" class="toc-link">[Lihat Halaman]</a></div>
-</div>
-
-<div class="page-break"></div>
-
-<a name="rekap-umum" id="rekap-umum"></a>
-<div class="section-header">BAGIAN I: REKAPITULASI UMUM KAS PANITIA</div>
-
-<div class="card-summary">
-  <table style="border: none; margin: 0;">
-    <tr style="background: none;"><td style="border: none; font-size: 11pt; padding: 4px;"><strong>Total Seluruh Pemasukan</strong></td><td style="border: none; font-size: 11pt; text-align: right; color: #16A34A; font-weight: bold; padding: 4px;">Rp ''' + formatRp(totalIncome) + '''</td></tr>
-    <tr style="background: none;"><td style="border: none; font-size: 11pt; padding: 4px;"><strong>Total Seluruh Pengeluaran</strong></td><td style="border: none; font-size: 11pt; text-align: right; color: #DC2626; font-weight: bold; padding: 4px;">Rp ''' + formatRp(totalExpense) + '''</td></tr>
-    <tr style="background: none;"><td style="border: none; border-top: 2px solid #BAE6FD; font-size: 13pt; padding: 8px 4px 4px 4px;"><strong>SISA KAS BERSIH (SALDO RIIL)</strong></td><td style="border: none; border-top: 2px solid #BAE6FD; font-size: 14pt; text-align: right; color: #0284C7; font-weight: 900; padding: 8px 4px 4px 4px;">Rp ''' + formatRp(netBalance) + '''</td></tr>
+<!-- KARTU RINGKASAN SALDO -->
+<div class="saldo-card">
+  <div class="saldo-label">SISA KAS BERSIH (SALDO RIIL SAAT INI)</div>
+  <div class="saldo-val">Rp ''' + formatRp(netBalance) + '''</div>
+  <table style="width: 100%; border: none; margin: 0;">
+    <tr style="background: none;">
+      <td style="border: none; padding: 0; width: 50%;">
+        <strong>Total Penerimaan:</strong> <span style="color: #16A34A; font-weight: bold;">Rp ''' + formatRp(totalIncome) + '''</span>
+      </td>
+      <td style="border: none; padding: 0; width: 50%; text-align: right;">
+        <strong>Total Pengeluaran:</strong> <span style="color: #DC2626; font-weight: bold;">Rp ''' + formatRp(totalExpense) + '''</span>
+      </td>
+    </tr>
   </table>
 </div>
 
-<h4 style="color: #0C4A6E; margin-bottom: 6px;">Ringkasan Komparasi Seluruh Pos & Seksi:</h4>
-<table>
-  <tr><th>No</th><th>Pos Pemasukan</th><th class="num-col">Jumlah Masuk</th><th>Seksi Pengeluaran</th><th class="num-col">Jumlah Keluar</th></tr>
+<!-- DAFTAR ISI INTERAKTIF RAPI (TABEL TANPA TITIK MANUAL) -->
+<div class="toc-card">
+  <div class="toc-header">DAFTAR ISI LAPORAN</div>
+  <table class="toc-tbl">
+    <tr>
+      <td><strong>1. BAGIAN I: REKAPITULASI UMUM KAS</strong></td>
+      <td style="text-align: right;"><a href="#bagian-1" class="toc-link">[Buka Bagian I]</a></td>
+    </tr>
+    <tr>
+      <td><strong>2. BAGIAN II: RINCIAN POS PEMASUKAN AKTIF</strong></td>
+      <td style="text-align: right;"><a href="#bagian-2" class="toc-link">[Buka Bagian II]</a></td>
+    </tr>
 ''');
 
-    final int maxRows = incomeSections.length > expenseSections.length ? incomeSections.length : expenseSections.length;
-    for (int i = 0; i < maxRows; i++) {
-      final incName = i < incomeSections.length ? incomeSections[i].name : '-';
-      final incVal = i < incomeSections.length ? _records.where((r) => r.isIncome && r.section == incName).fold(0.0, (t, r) => t + r.amount) : 0.0;
-      final expName = i < expenseSections.length ? expenseSections[i].name : '-';
-      final expVal = i < expenseSections.length ? _records.where((r) => !r.isIncome && r.section == expName).fold(0.0, (t, r) => t + r.amount) : 0.0;
-
-      doc.writeln('  <tr><td>' + (i + 1).toString() + '</td><td>' + incName + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">' + (incVal > 0 ? 'Rp ' + formatRp(incVal) : '-') + '</td><td>' + expName + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">' + (expVal > 0 ? 'Rp ' + formatRp(expVal) : '-') + '</td></tr>');
+    for (int i = 0; i < activeIncomeSections.length; i++) {
+      final s = activeIncomeSections[i];
+      final count = _records.where((r) => r.isIncome && r.section == s.name).length;
+      final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('    <tr><td style="padding-left: 18px; color: #475569;">• Pos ' + s.name + ' (' + count.toString() + ' data - Rp ' + formatRp(sum) + ')</td><td style="text-align: right;"><a href="#pos-' + i.toString() + '" class="toc-link">Lihat Tabel</a></td></tr>');
     }
 
-    doc.writeln('''  <tr class="subtotal-row"><td></td><td>TOTAL PEMASUKAN</td><td class="num-col">Rp ''' + formatRp(totalIncome) + '''</td><td>TOTAL PENGELUARAN</td><td class="num-col">Rp ''' + formatRp(totalExpense) + '''</td></tr>
+    doc.writeln('''    <tr>
+      <td><strong>3. BAGIAN III: RINCIAN BELANJA PER SEKSI AKTIF</strong></td>
+      <td style="text-align: right;"><a href="#bagian-3" class="toc-link">[Buka Bagian III]</a></td>
+    </tr>
+''');
+
+    for (int i = 0; i < activeExpenseSections.length; i++) {
+      final s = activeExpenseSections[i];
+      final count = _records.where((r) => !r.isIncome && r.section == s.name).length;
+      final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('    <tr><td style="padding-left: 18px; color: #475569;">• ' + s.name + ' (' + count.toString() + ' data - Rp ' + formatRp(sum) + ')</td><td style="text-align: right;"><a href="#seksi-' + i.toString() + '" class="toc-link">Lihat Tabel</a></td></tr>');
+    }
+
+    doc.writeln('''    <tr>
+      <td><strong>4. BAGIAN IV: LEMBAR PENGESAHAN & TANDA TANGAN</strong></td>
+      <td style="text-align: right;"><a href="#bagian-4" class="toc-link">[Buka Pengesahan]</a></td>
+    </tr>
+  </table>
+</div>
+
+<!-- BAGIAN I: REKAPITULASI UMUM -->
+<a name="bagian-1" id="bagian-1"></a>
+<div class="part-banner">BAGIAN I: REKAPITULASI UMUM KAS</div>
+
+<div class="section-badge">1.1. Rekapitulasi Pos Pemasukan Kas</div>
+<table class="report-tbl">
+  <tr>
+    <th style="width: 35px;">No</th>
+    <th>Nama Pos Pemasukan</th>
+    <th style="width: 110px; text-align: center;">Banyak Data</th>
+    <th class="num-col" style="width: 140px;">Total Penerimaan</th>
+  </tr>
+''');
+
+    int incNum = 1;
+    for (var s in _sections.where((s) => s.isIncome)) {
+      final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
+      final sum = recs.fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('  <tr><td style="text-align: center;">' + incNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(sum) + '</td></tr>');
+      incNum++;
+    }
+
+    doc.writeln('''  <tr class="subtotal-row">
+    <td colspan="3" style="text-align: right;">TOTAL KESELURUHAN PEMASUKAN:</td>
+    <td class="num-col" style="color: #16A34A;">Rp ''' + formatRp(totalIncome) + '''</td>
+  </tr>
 </table>
 
-<div class="page-break"></div>
-
-<div class="section-header">BAGIAN II: RINCIAN PEMASUKAN KAS (PER POS KEGIATAN)</div>
-<p style="font-size: 10pt; color: #64748B; margin-top: -6px;">Setiap pos pemasukan memiliki tabel pencatatan masing-masing lengkap dengan subtotal dan tanggal transaksi.</p>
+<div class="section-badge">1.2. Rekapitulasi Realisasi Belanja per Seksi</div>
+<table class="report-tbl">
+  <tr>
+    <th style="width: 35px;">No</th>
+    <th>Nama Seksi Kepanitiaan</th>
+    <th style="width: 110px; text-align: center;">Banyak Data</th>
+    <th class="num-col" style="width: 140px;">Total Pengeluaran</th>
+  </tr>
 ''');
 
-    for (int i = 0; i < incomeSections.length; i++) {
-      final s = incomeSections[i];
-      final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
-      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
-
-      doc.writeln('<a name="pos-' + i.toString() + '" id="pos-' + i.toString() + '"></a>');
-      doc.writeln('<div class="subsection-header">2.' + (i + 1).toString() + '. Pos: ' + s.name + ' <span style="font-size: 10pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' transaksi)</span></div>');
-
-      if (recs.isEmpty) {
-        doc.writeln('<p style="font-size: 9.5pt; color: #94A3B8; font-style: italic; margin-left: 10px;">Belum ada catatan transaksi pada pos ini.</p>');
-      } else {
-        doc.writeln('<table>');
-        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan / Nama Jemaat / Barang</th><th style="width: 90px;">Tanggal</th><th style="width: 80px;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 110px;">Jumlah (Rp)</th></tr>');
-
-        for (int j = 0; j < recs.length; j++) {
-          final r = recs[j];
-          final d = _formatDate(r.date);
-          doc.writeln('  <tr><td>' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td>' + d + '</td><td>' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-        }
-
-        doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col">Rp ' + formatRp(subtotal) + '</td></tr>');
-        doc.writeln('</table>');
-      }
-      doc.writeln('<div style="height: 10px;"></div>');
+    int expNum = 1;
+    for (var s in _sections.where((s) => !s.isIncome)) {
+      final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
+      final sum = recs.fold(0.0, (t, r) => t + r.amount);
+      doc.writeln('  <tr><td style="text-align: center;">' + expNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(sum) + '</td></tr>');
+      expNum++;
     }
 
-    doc.writeln('''<div class="page-break"></div>
+    doc.writeln('''  <tr class="subtotal-row">
+    <td colspan="3" style="text-align: right;">TOTAL KESELURUHAN PENGELUARAN:</td>
+    <td class="num-col" style="color: #DC2626;">Rp ''' + formatRp(totalExpense) + '''</td>
+  </tr>
+</table>
 
-<div class="section-header">BAGIAN III: RINCIAN PENGELUARAN (PER SEKSI KEPANITIAAN)</div>
-<p style="font-size: 10pt; color: #64748B; margin-top: -6px;">Setiap seksi kepanitiaan memiliki tabel rincian belanja masing-masing lengkap dengan subtotal dan tanggal transaksi.</p>
+<!-- BAGIAN II: RINCIAN PEMASUKAN (HANYA POS YANG ADA TRANSAKSINYA) -->
+<a name="bagian-2" id="bagian-2"></a>
+<div class="part-banner">BAGIAN II: RINCIAN POS PEMASUKAN KAS</div>
 ''');
 
-    for (int i = 0; i < expenseSections.length; i++) {
-      final s = expenseSections[i];
-      final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
-      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
+    if (activeIncomeSections.isEmpty) {
+      doc.writeln('<p style="font-size: 10pt; color: #64748B; font-style: italic;">Belum ada catatan transaksi pemasukan.</p>');
+    } else {
+      for (int i = 0; i < activeIncomeSections.length; i++) {
+        final s = activeIncomeSections[i];
+        final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
+        final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
 
-      doc.writeln('<a name="seksi-' + i.toString() + '" id="seksi-' + i.toString() + '"></a>');
-      doc.writeln('<div class="subsection-header">3.' + (i + 1).toString() + '. ' + s.name + ' <span style="font-size: 10pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' transaksi)</span></div>');
+        doc.writeln('<a name="pos-' + i.toString() + '" id="pos-' + i.toString() + '"></a>');
+        doc.writeln('<div class="section-badge">Pos: ' + s.name + ' <span style="font-size: 9.5pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' catatan)</span></div>');
 
-      if (recs.isEmpty) {
-        doc.writeln('<p style="font-size: 9.5pt; color: #94A3B8; font-style: italic; margin-left: 10px;">Belum ada catatan belanja pada seksi ini.</p>');
-      } else {
-        doc.writeln('<table>');
-        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan Belanja / Keperluan</th><th style="width: 90px;">Tanggal</th><th style="width: 80px;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 110px;">Jumlah (Rp)</th></tr>');
+        // Jika Pos adalah Kalender Jemaat, bagi tabel berdasarkan 4 Sektor
+        if (s.name.toLowerCase().contains('kalender')) {
+          final sectorList = ['Sektor Senin', 'Sektor Selasa', 'Sektor Rabu', 'Sektor Kamis'];
+          for (int secIdx = 0; secIdx < sectorList.length; secIdx++) {
+            final secName = sectorList[secIdx];
+            final secRecs = recs.where((r) => r.subCategory == secName).toList();
+            final secSubtotal = secRecs.fold(0.0, (t, r) => t + r.amount);
+
+            doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 8px; margin-bottom: 4px;">• ' + secName + ' (' + secRecs.length.toString() + ' keluarga)</div>');
+
+            if (secRecs.isEmpty) {
+              doc.writeln('<p style="font-size: 9pt; color: #94A3B8; font-style: italic; margin-left: 10px; margin-bottom: 8px;">Belum ada setoran masuk untuk ' + secName + '.</p>');
+            } else {
+              doc.writeln('<table class="report-tbl">');
+              doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
+
+              for (int j = 0; j < secRecs.length; j++) {
+                final r = secRecs[j];
+                final d = _formatDate(r.date);
+                doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+              }
+
+              doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + secName + ':</td><td class="num-col">Rp ' + formatRp(secSubtotal) + '</td></tr>');
+              doc.writeln('</table>');
+            }
+          }
+          doc.writeln('<div style="text-align: right; font-weight: bold; font-size: 10.5pt; color: #0369A1; margin-bottom: 16px; border-top: 1.5px dashed #BAE6FD; padding-top: 6px;">TOTAL KALENDER SELURUH SEKTOR: Rp ' + formatRp(subtotal) + '</div>');
+        } else {
+          doc.writeln('<table class="report-tbl">');
+          doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan / Nama Jemaat / Donatur</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah</th></tr>');
+
+          for (int j = 0; j < recs.length; j++) {
+            final r = recs[j];
+            final d = _formatDate(r.date);
+            doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+          }
+
+          doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col">Rp ' + formatRp(subtotal) + '</td></tr>');
+          doc.writeln('</table>');
+        }
+      }
+    }
+
+    doc.writeln('''<!-- BAGIAN III: RINCIAN PENGELUARAN (HANYA SEKSI YANG ADA TRANSAKSINYA) -->
+<a name="bagian-3" id="bagian-3"></a>
+<div class="part-banner">BAGIAN III: RINCIAN BELANJA PER SEKSI</div>
+''');
+
+    if (activeExpenseSections.isEmpty) {
+      doc.writeln('<p style="font-size: 10pt; color: #64748B; font-style: italic;">Belum ada catatan belanja pengeluaran.</p>');
+    } else {
+      for (int i = 0; i < activeExpenseSections.length; i++) {
+        final s = activeExpenseSections[i];
+        final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
+        final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
+
+        doc.writeln('<a name="seksi-' + i.toString() + '" id="seksi-' + i.toString() + '"></a>');
+        doc.writeln('<div class="section-badge">' + s.name + ' <span style="font-size: 9.5pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' catatan)</span></div>');
+        doc.writeln('<table class="report-tbl">');
+        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan Belanja / Barang Keperluan</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah</th></tr>');
 
         for (int j = 0; j < recs.length; j++) {
           final r = recs[j];
           final d = _formatDate(r.date);
-          doc.writeln('  <tr><td>' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td>' + d + '</td><td>' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
+          doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
         }
 
         doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #DC2626;">Rp ' + formatRp(subtotal) + '</td></tr>');
         doc.writeln('</table>');
       }
-      doc.writeln('<div style="height: 10px;"></div>');
     }
 
-    doc.writeln('''<div class="page-break"></div>
-
-<a name="pengesahan" id="pengesahan"></a>
-<div class="section-header">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
-<p style="font-size: 11pt; margin-top: 10px;">
-  Demikian laporan pertanggungjawaban penerimaan kas dan realisasi pengeluaran Panitia Natal ini disusun dengan sebenar-benarnya secara transparan dan akuntabel.
+    doc.writeln('''<!-- BAGIAN IV: LEMBAR PENGESAHAN -->
+<div class="page-break"></div>
+<a name="bagian-4" id="bagian-4"></a>
+<div class="part-banner">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
+<p style="font-size: 10.5pt; margin-top: 10px;">
+  Demikian laporan pertanggungjawaban kas penerimaan dan pengeluaran Panitia Natal ini disusun dengan sebenar-benarnya secara terbuka, transparan, dan akuntabel.
 </p>
 
 <table class="sign-table">
@@ -1492,7 +1619,7 @@ tr:nth-child(even) { background-color: #F8FAFC; }
     </td>
   </tr>
   <tr>
-    <td colspan="2" style="padding-top: 40px;">
+    <td colspan="2" style="padding-top: 35px;">
       Mengetahui & Menyetujui,<br>
       <strong>Ketua Panitia Natal</strong><br><br><br><br><br>
       ( __________________________ )
@@ -1500,6 +1627,7 @@ tr:nth-child(even) { background-color: #F8FAFC; }
   </tr>
 </table>
 
+<!-- FOOTER NOMOR HALAMAN RESMI WORD -->
 <table id="hrdftrtbl" border="0" cellspacing="0" cellpadding="0" style="margin: 0;">
   <tr>
     <td>
@@ -1551,6 +1679,8 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
   final _noteCtrl = TextEditingController();
 
   late String _selectedSection;
+  String _selectedSector = 'Sektor Senin';
+  final List<String> _sectors = ['Sektor Senin', 'Sektor Selasa', 'Sektor Rabu', 'Sektor Kamis'];
   DateTime _date = DateTime.now();
 
   @override
@@ -1607,6 +1737,21 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
               },
             ),
             const SizedBox(height: 12),
+            if (widget.isIncome && _selectedSection.toLowerCase().contains('kalender')) ...[
+              DropdownButtonFormField<String>(
+                value: _selectedSector,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Sektor Wijk Jemaat *',
+                  prefixIcon: Icon(Icons.location_city, color: Color(0xFF0284C7)),
+                  border: OutlineInputBorder(),
+                ),
+                items: _sectors.map((sec) => DropdownMenuItem(value: sec, child: Text(sec))).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedSector = val);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
 
             TextField(
               controller: _titleCtrl,
@@ -1694,10 +1839,12 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
                     return;
                   }
 
+                  final isKalender = widget.isIncome && _selectedSection.toLowerCase().contains('kalender');
                   final newRec = PanatRecord(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     categoryType: widget.isIncome ? 'pemasukan' : 'pengeluaran',
                     section: _selectedSection,
+                    subCategory: isKalender ? _selectedSector : '',
                     title: title,
                     amount: amount,
                     date: _date,
