@@ -207,16 +207,7 @@ class _PanatKasAppState extends State<PanatKasApp> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      cardTheme: CardTheme(
-        color: Colors.white,
-        elevation: 1.5,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFFDE8E8), width: 1),
-        ),
-      ),
-    );
-
+      
     final darkTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
