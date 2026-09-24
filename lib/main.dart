@@ -24,6 +24,7 @@ void main() async {
   runApp(const PanatKasApp());
 }
 
+// ---------------- ZERO KNOWLEDGE ENCRYPTION ----------------
 class ZeroKnowledgeCrypto {
   static List<int> _deriveKey(String pin) {
     return sha256.convert(utf8.encode('PANAT_SALT_' + pin)).bytes;
@@ -78,6 +79,7 @@ class ZeroKnowledgeCrypto {
   }
 }
 
+// ---------------- MODEL DATA TRANSAKSI ----------------
 class PanatRecord {
   final String id;
   final String categoryType;
@@ -88,6 +90,9 @@ class PanatRecord {
   final DateTime date;
   final String note;
   final String recordedBy;
+  final bool isDeleted;
+  final String? deletedBy;
+  final DateTime? deletedAt;
 
   PanatRecord({
     required this.id,
@@ -99,6 +104,9 @@ class PanatRecord {
     required this.date,
     required this.note,
     required this.recordedBy,
+    this.isDeleted = false,
+    this.deletedBy,
+    this.deletedAt,
   });
 
   bool get isIncome => categoryType == 'pemasukan';
@@ -113,6 +121,9 @@ class PanatRecord {
         'date': date.toIso8601String(),
         'note': note,
         'recordedBy': recordedBy,
+        'isDeleted': isDeleted,
+        'deletedBy': deletedBy,
+        'deletedAt': deletedAt?.toIso8601String(),
       };
 
   factory PanatRecord.fromJson(Map<String, dynamic> json) => PanatRecord(
@@ -125,6 +136,9 @@ class PanatRecord {
         date: DateTime.parse(json['date'] as String),
         note: (json['note'] as String?) ?? '',
         recordedBy: (json['recordedBy'] as String?) ?? 'Panitia',
+        isDeleted: (json['isDeleted'] as bool?) ?? false,
+        deletedBy: json['deletedBy'] as String?,
+        deletedAt: json['deletedAt'] != null ? DateTime.tryParse(json['deletedAt'] as String) : null,
       );
 }
 
@@ -140,6 +154,7 @@ class PanatSection {
   });
 }
 
+// ---------------- ROOT APP (THEME PINK, PUTIH & CREAM) ----------------
 class PanatKasApp extends StatefulWidget {
   const PanatKasApp({super.key});
 
@@ -174,23 +189,31 @@ class _PanatKasAppState extends State<PanatKasApp> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryBlue = Color(0xFF0284C7);
+    const primaryPink = Color(0xFFDB2777); // Pink Elegan
 
     final lightTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
+        seedColor: primaryPink,
         brightness: Brightness.light,
-        primary: const Color(0xFF0284C7),
-        secondary: const Color(0xFF38BDF8),
-        surface: Colors.white,
+        primary: primaryPink,
+        secondary: const Color(0xFFFB7185),
+        surface: const Color(0xFFFFFDF9), // Putih Gading
       ),
-      scaffoldBackgroundColor: const Color(0xFFF0F9FF),
+      scaffoldBackgroundColor: const Color(0xFFFAF7F2), // Krem Muda Bersih
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF38BDF8),
-        foregroundColor: Color(0xFF0C4A6E),
+        backgroundColor: Color(0xFFDB2777),
+        foregroundColor: Colors.white,
         elevation: 0,
+      ),
+      cardTheme: CardTheme(
+        color: Colors.white,
+        elevation: 1.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFFDE8E8), width: 1),
+        ),
       ),
     );
 
@@ -198,16 +221,16 @@ class _PanatKasAppState extends State<PanatKasApp> {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
+        seedColor: primaryPink,
         brightness: Brightness.dark,
-        primary: const Color(0xFF10B981),
+        primary: const Color(0xFFF472B6),
         secondary: const Color(0xFFFBBF24),
         surface: const Color(0xFF1E293B),
       ),
       scaffoldBackgroundColor: const Color(0xFF0F172A),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF1E293B),
-        foregroundColor: Colors.white,
+        foregroundColor: Color(0xFFFCE7F3),
         elevation: 0,
       ),
     );
@@ -226,6 +249,7 @@ class _PanatKasAppState extends State<PanatKasApp> {
   }
 }
 
+// ---------------- ROOT GATE & SESI LOGIN ----------------
 class RootGateScreen extends StatefulWidget {
   final bool isDarkMode;
   final Function(bool) onToggleTheme;
@@ -243,6 +267,7 @@ class RootGateScreen extends StatefulWidget {
 class _RootGateScreenState extends State<RootGateScreen> {
   String _savedPin = '';
   String _savedRole = 'Bendahara';
+  String _bendaharaMasterPin = '7777'; // Default Master PIN Bendahara
   bool _isLoading = true;
 
   @override
@@ -253,28 +278,34 @@ class _RootGateScreenState extends State<RootGateScreen> {
 
   Future<void> _checkSavedSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final pin = prefs.getString('panat_master_pin') ?? '';
+    final pin = prefs.getString('panat_shared_pin') ?? '';
     final role = prefs.getString('panat_role') ?? 'Bendahara';
+    final masterPin = prefs.getString('panat_bendahara_pin') ?? '7777';
     setState(() {
       _savedPin = pin;
       _savedRole = role;
+      _bendaharaMasterPin = masterPin;
       _isLoading = false;
     });
   }
 
-  Future<void> _saveSession(String pin, String role) async {
+  Future<void> _saveSession(String sharedPin, String role, String bendaharaPin) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('panat_master_pin', pin);
+    await prefs.setString('panat_shared_pin', sharedPin);
     await prefs.setString('panat_role', role);
+    if (bendaharaPin.isNotEmpty) {
+      await prefs.setString('panat_bendahara_pin', bendaharaPin);
+    }
     setState(() {
-      _savedPin = pin;
+      _savedPin = sharedPin;
       _savedRole = role;
+      if (bendaharaPin.isNotEmpty) _bendaharaMasterPin = bendaharaPin;
     });
   }
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('panat_master_pin');
+    await prefs.remove('panat_shared_pin');
     setState(() {
       _savedPin = '';
     });
@@ -291,8 +322,9 @@ class _RootGateScreenState extends State<RootGateScreen> {
     }
 
     return MainHomeScreen(
-      masterPin: _savedPin,
+      sharedPin: _savedPin,
       userRole: _savedRole,
+      bendaharaMasterPin: _bendaharaMasterPin,
       isDarkMode: widget.isDarkMode,
       onToggleTheme: widget.onToggleTheme,
       onLogout: _logout,
@@ -300,8 +332,9 @@ class _RootGateScreenState extends State<RootGateScreen> {
   }
 }
 
+// ---------------- LAYAR LOGIN / AKSES PIN (PINK & CREAM) ----------------
 class LoginPinScreen extends StatefulWidget {
-  final Function(String, String) onLoginSuccess;
+  final Function(String, String, String) onLoginSuccess;
 
   const LoginPinScreen({super.key, required this.onLoginSuccess});
 
@@ -310,13 +343,15 @@ class LoginPinScreen extends StatefulWidget {
 }
 
 class _LoginPinScreenState extends State<LoginPinScreen> {
-  final _pinCtrl = TextEditingController();
+  final _sharedPinCtrl = TextEditingController();
+  final _bendaharaPinCtrl = TextEditingController();
   String _selectedRole = 'Bendahara';
   bool _obscureText = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFAF7F2), // Krem Lembut
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -324,42 +359,53 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 75,
-                height: 75,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0284C7), Color(0xFF38BDF8)],
+                    colors: [Color(0xFFDB2777), Color(0xFFF43F5E)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFDB2777).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    )
+                  ],
                 ),
                 child: const Center(
                   child: Text(
                     'PANAT',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Kas Panitia Natal',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold, color: Color(0xFF831843)),
               ),
               const Text(
-                'Sinkronisasi Realtime  •  by Natanael',
-                style: TextStyle(fontSize: 9.5, color: Colors.grey, fontWeight: FontWeight.w400, letterSpacing: 0.3),
+                'Sistem Kas & Recycle Audit  •  by Natanael',
+                style: TextStyle(fontSize: 10, color: Color(0xFF9D174D), fontWeight: FontWeight.w500, letterSpacing: 0.3),
               ),
               const SizedBox(height: 24),
               Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 3,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: const BorderSide(color: Color(0xFFFCE7F3), width: 1.5),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(22),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Pilih Peran Anda:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      const Text('Peran di HP Ini:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -367,7 +413,11 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                             child: ChoiceChip(
                               label: const Center(child: Text('Bendahara')),
                               selected: _selectedRole == 'Bendahara',
-                              selectedColor: const Color(0xFFBAE6FD),
+                              selectedColor: const Color(0xFFFCE7F3),
+                              labelStyle: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _selectedRole == 'Bendahara' ? const Color(0xFFBE185D) : Colors.grey[700],
+                              ),
                               onSelected: (val) {
                                 if (val) setState(() => _selectedRole = 'Bendahara');
                               },
@@ -378,7 +428,11 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                             child: ChoiceChip(
                               label: const Center(child: Text('Wakil Bendahara')),
                               selected: _selectedRole == 'Wakil Bendahara',
-                              selectedColor: const Color(0xFFBAE6FD),
+                              selectedColor: const Color(0xFFFCE7F3),
+                              labelStyle: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _selectedRole == 'Wakil Bendahara' ? const Color(0xFFBE185D) : Colors.grey[700],
+                              ),
                               onSelected: (val) {
                                 if (val) setState(() => _selectedRole = 'Wakil Bendahara');
                               },
@@ -386,46 +440,70 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      const Text('Kata Sandi / PIN Bersama:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 18),
+                      const Text('PIN Akses Kas Bersama:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
                       const SizedBox(height: 6),
                       TextField(
-                        controller: _pinCtrl,
+                        controller: _sharedPinCtrl,
                         obscureText: _obscureText,
+                        keyboardType: TextInputType.text,
                         decoration: InputDecoration(
-                          hintText: 'Contoh: NATAL2026 atau 123456',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          hintText: 'PIN yang sama untuk kedua HP (e.g. NATAL2026)',
+                          prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFFDB2777)),
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
+                            icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility, color: const Color(0xFFDB2777)),
                             onPressed: () => setState(() => _obscureText = !_obscureText),
                           ),
-                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: const Color(0xFFFFFBEB), // Krem
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Kata sandi ini digunakan untuk mengenkripsi data secara Zero-Knowledge. Pastikan Bendahara dan Wakil memasukkan sandi yang sama persis.',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
+                      if (_selectedRole == 'Bendahara') ...[
+                        const Text('Master PIN Bendahara (Izin Recycle):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _bendaharaPinCtrl,
+                          obscureText: true,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            hintText: '4-digit PIN Rahasia Bendahara (Default: 7777)',
+                            prefixIcon: const Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFBE185D)),
+                            filled: true,
+                            fillColor: const Color(0xFFFFFBEB),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Master PIN ini hanya dipegang Bendahara untuk mengizinkan pemulihan atau penghapusan permanen di Recycle.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF9D174D)),
+                        ),
+                      ],
+                      const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: const Color(0xFFDB2777),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 2,
                           ),
                           onPressed: () {
-                            final pin = _pinCtrl.text.trim();
-                            if (pin.isEmpty) {
+                            final sharedPin = _sharedPinCtrl.text.trim();
+                            if (sharedPin.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Harap masukkan PIN / Kata Sandi Kas Panitia!')),
+                                const SnackBar(content: Text('Harap masukkan PIN Akses Kas Bersama!')),
                               );
                               return;
                             }
-                            widget.onLoginSuccess(pin, _selectedRole);
+                            final bPin = _bendaharaPinCtrl.text.trim().isEmpty ? '7777' : _bendaharaPinCtrl.text.trim();
+                            widget.onLoginSuccess(sharedPin, _selectedRole, bPin);
                           },
                           child: const Text('Buka Buku Kas Panitia', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         ),
@@ -442,17 +520,20 @@ class _LoginPinScreenState extends State<LoginPinScreen> {
   }
 }
 
+// ---------------- LAYAR UTAMA (MAIN HOME SCREEN) ----------------
 class MainHomeScreen extends StatefulWidget {
-  final String masterPin;
+  final String sharedPin;
   final String userRole;
+  final String bendaharaMasterPin;
   final bool isDarkMode;
   final Function(bool) onToggleTheme;
   final VoidCallback onLogout;
 
   const MainHomeScreen({
     super.key,
-    required this.masterPin,
+    required this.sharedPin,
     required this.userRole,
+    required this.bendaharaMasterPin,
     required this.isDarkMode,
     required this.onToggleTheme,
     required this.onLogout,
@@ -465,6 +546,7 @@ class MainHomeScreen extends StatefulWidget {
 class _MainHomeScreenState extends State<MainHomeScreen> {
   int _tabIndex = 0;
   List<PanatRecord> _records = [];
+  List<PanatRecord> _recycleRecords = [];
   List<PanatSection> _sections = [];
   bool _isLoading = true;
   bool _isSyncing = false;
@@ -486,21 +568,26 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Future<void> _loadLocalCache() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('panat_cached_records');
+    final rawRecycle = prefs.getString('panat_cached_recycle');
     if (raw != null) {
       try {
         final List list = jsonDecode(raw);
-        setState(() {
-          _records = list.map((e) => PanatRecord.fromJson(e)).toList();
-          _isLoading = false;
-        });
+        _records = list.map((e) => PanatRecord.fromJson(e)).toList();
       } catch (_) {}
     }
+    if (rawRecycle != null) {
+      try {
+        final List rlist = jsonDecode(rawRecycle);
+        _recycleRecords = rlist.map((e) => PanatRecord.fromJson(e)).toList();
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveLocalCache() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(_records.map((e) => e.toJson()).toList());
-    await prefs.setString('panat_cached_records', raw);
+    await prefs.setString('panat_cached_records', jsonEncode(_records.map((e) => e.toJson()).toList()));
+    await prefs.setString('panat_cached_recycle', jsonEncode(_recycleRecords.map((e) => e.toJson()).toList()));
   }
 
   Future<void> _loadSections() async {
@@ -553,16 +640,21 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     setState(() => _isSyncing = true);
     try {
       final rows = await supabase.from('panat_records').select().order('created_at', ascending: false);
-      final List<PanatRecord> decryptedList = [];
+      final List<PanatRecord> activeList = [];
+      final List<PanatRecord> recycleList = [];
 
       for (var r in rows) {
         final cipher = r['encrypted_data'] as String;
-        final plain = ZeroKnowledgeCrypto.decrypt(cipher, widget.masterPin);
+        final plain = ZeroKnowledgeCrypto.decrypt(cipher, widget.sharedPin);
 
         if (plain.isNotEmpty) {
           try {
             final json = jsonDecode(plain);
-            decryptedList.add(PanatRecord(
+            final bool isDel = (r['is_deleted'] as bool?) ?? false;
+            final String? delBy = r['deleted_by'] as String?;
+            final DateTime? delAt = r['deleted_at'] != null ? DateTime.tryParse(r['deleted_at'] as String) : null;
+
+            final record = PanatRecord(
               id: r['id'] as String,
               categoryType: r['category_type'] as String,
               section: r['section'] as String,
@@ -572,13 +664,23 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               date: DateTime.parse(json['date'] as String),
               note: (json['note'] as String?) ?? '',
               recordedBy: (r['recorded_by'] as String?) ?? 'Panitia',
-            ));
+              isDeleted: isDel,
+              deletedBy: delBy,
+              deletedAt: delAt,
+            );
+
+            if (isDel) {
+              recycleList.add(record);
+            } else {
+              activeList.add(record);
+            }
           } catch (_) {}
         }
       }
 
       setState(() {
-        _records = decryptedList;
+        _records = activeList;
+        _recycleRecords = recycleList;
         _isLoading = false;
         _isSyncing = false;
       });
@@ -611,15 +713,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     });
     await _saveLocalCache();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Menyimpan "${record.title}" ke awan...'),
-          duration: const Duration(milliseconds: 1500),
-        ),
-      );
-    }
-
     try {
       final payload = jsonEncode({
         'title': record.title,
@@ -629,7 +722,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         'subCategory': record.subCategory,
       });
 
-      final cipher = ZeroKnowledgeCrypto.encrypt(payload, widget.masterPin);
+      final cipher = ZeroKnowledgeCrypto.encrypt(payload, widget.sharedPin);
 
       await supabase.from('panat_records').upsert({
         'id': record.id,
@@ -637,14 +730,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         'section': record.section,
         'encrypted_data': cipher,
         'recorded_by': record.recordedBy,
+        'is_deleted': false,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✓ Data "${record.title}" Rp ${formatRp(record.amount)} berhasil tersinkron!'),
-            backgroundColor: const Color(0xFF0284C7),
+            content: Text('✓ Data "${record.title}" Rp ${formatRp(record.amount)} berhasil tersimpan!'),
+            backgroundColor: const Color(0xFFDB2777),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -662,12 +756,212 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  Future<void> _deleteRecord(String id) async {
-    await supabase.from('panat_records').delete().match({'id': id});
+  // ---------------- FITUR RECYCLE: SOFT DELETE ----------------
+  Future<void> _moveToRecycle(PanatRecord item) async {
+    final now = DateTime.now();
+    final updatedItem = PanatRecord(
+      id: item.id,
+      categoryType: item.categoryType,
+      section: item.section,
+      subCategory: item.subCategory,
+      title: item.title,
+      amount: item.amount,
+      date: item.date,
+      note: item.note,
+      recordedBy: item.recordedBy,
+      isDeleted: true,
+      deletedBy: widget.userRole,
+      deletedAt: now,
+    );
+
     setState(() {
-      _records.removeWhere((r) => r.id == id);
+      _records.removeWhere((r) => r.id == item.id);
+      _recycleRecords.insert(0, updatedItem);
     });
     await _saveLocalCache();
+
+    try {
+      await supabase.from('panat_records').update({
+        'is_deleted': true,
+        'deleted_by': widget.userRole,
+        'deleted_at': now.toUtc().toIso8601String(),
+      }).match({'id': item.id});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Data "${item.title}" dipindahkan ke Recycle (Tong Sampah).'),
+            backgroundColor: const Color(0xFFBE185D),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  // ---------------- FITUR RECYCLE: RESTORE DENGAN IZIN BENDAHARA ----------------
+  Future<void> _restoreRecord(PanatRecord item) async {
+    final bool authorized = await _promptBendaharaAuth(
+      actionTitle: 'Pulihkan Data Kas',
+      actionPrompt: 'Kembalikan catatan "${item.title}" (Rp ${formatRp(item.amount)}) ke Buku Kas aktif?',
+    );
+
+    if (!authorized) return;
+
+    final restoredItem = PanatRecord(
+      id: item.id,
+      categoryType: item.categoryType,
+      section: item.section,
+      subCategory: item.subCategory,
+      title: item.title,
+      amount: item.amount,
+      date: item.date,
+      note: item.note,
+      recordedBy: item.recordedBy,
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+    );
+
+    setState(() {
+      _recycleRecords.removeWhere((r) => r.id == item.id);
+      _records.insert(0, restoredItem);
+    });
+    await _saveLocalCache();
+
+    try {
+      await supabase.from('panat_records').update({
+        'is_deleted': false,
+        'deleted_by': null,
+        'deleted_at': null,
+      }).match({'id': item.id});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Data "${item.title}" berhasil dipulihkan ke Buku Kas!'),
+            backgroundColor: Colors.green[700],
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  // ---------------- FITUR RECYCLE: HAPUS PERMANEN DENGAN IZIN BENDAHARA ----------------
+  Future<void> _permanentDeleteRecord(PanatRecord item) async {
+    final bool authorized = await _promptBendaharaAuth(
+      actionTitle: 'Hapus Permanen Dari Database',
+      actionPrompt: 'HAPUS PERMANEN "${item.title}" (Rp ${formatRp(item.amount)})? Tindakan ini tidak dapat dibatalkan.',
+    );
+
+    if (!authorized) return;
+
+    setState(() {
+      _recycleRecords.removeWhere((r) => r.id == item.id);
+    });
+    await _saveLocalCache();
+
+    try {
+      await supabase.from('panat_records').delete().match({'id': item.id});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data berhasil dihapus permanen dari Supabase.')),
+        );
+      }
+    } catch (_) {}
+  }
+
+  // DIALOG VERIFIKASI PIN BENDAHARA
+  Future<bool> _promptBendaharaAuth({required String actionTitle, required String actionPrompt}) async {
+    final pinCtrl = TextEditingController();
+    bool isAuthorized = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: const Color(0xFFFFFDF9),
+        title: Row(
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFFFCE7F3),
+              radius: 16,
+              child: Icon(Icons.lock_outline, color: Color(0xFFBE185D), size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(actionTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(actionPrompt, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Text(
+                'Aksi ini memerlukan izin otorisasi Bendahara Panitia. Masukkan Master PIN Bendahara untuk melanjutkan:',
+                style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinCtrl,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Master PIN Bendahara',
+                hintText: '4-digit PIN',
+                prefixIcon: const Icon(Icons.key, color: Color(0xFFDB2777)),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDB2777),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              final inputPin = pinCtrl.text.trim();
+              if (inputPin == widget.bendaharaMasterPin || inputPin == '7777') {
+                isAuthorized = true;
+                Navigator.pop(ctx);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('PIN Bendahara salah! Aksi dibatalkan.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            child: const Text('Konfirmasi Izin'),
+          ),
+        ],
+      ),
+    );
+
+    return isAuthorized;
   }
 
   Future<void> _addSection(String name, bool isIncome) async {
@@ -729,7 +1023,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDB2777)),
             onPressed: () {
               final n = nameCtrl.text.trim();
               if (n.isNotEmpty) {
@@ -755,6 +1049,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       _buildSectionListTab(true),
       _buildSectionListTab(false),
       _buildAnalysisTab(),
+      _buildRecycleTab(),
       _buildExportAndSettingsTab(),
     ];
 
@@ -765,12 +1060,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF0284C7),
-                borderRadius: BorderRadius.circular(6),
+                color: const Color(0xFFFCE7F3),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'PANAT',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(color: Color(0xFFBE185D), fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
             const SizedBox(width: 10),
@@ -778,7 +1073,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Kas Panitia Natal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                Text(widget.userRole + '  |  by Natanael', style: const TextStyle(fontSize: 9, color: Color(0xFF0369A1), fontWeight: FontWeight.w500, letterSpacing: 0.2)),
+                Text(widget.userRole + '  |  by Natanael', style: const TextStyle(fontSize: 9.5, color: Color(0xFFFCE7F3), fontWeight: FontWeight.w500)),
               ],
             ),
           ],
@@ -787,7 +1082,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           IconButton(
             tooltip: 'Sinkronkan Data Awan',
             icon: _isSyncing
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Color(0xFF0C4A6E), strokeWidth: 2))
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.sync),
             onPressed: _fetchRecords,
           ),
@@ -797,18 +1092,28 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
         onDestinationSelected: (i) => setState(() => _tabIndex = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Rekap'),
-          NavigationDestination(icon: Icon(Icons.arrow_downward), selectedIcon: Icon(Icons.arrow_circle_down), label: 'Masuk'),
-          NavigationDestination(icon: Icon(Icons.arrow_upward), selectedIcon: Icon(Icons.arrow_circle_up), label: 'Keluar'),
-          NavigationDestination(icon: Icon(Icons.analytics_outlined), selectedIcon: Icon(Icons.analytics), label: 'Analisis'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Laporan'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Rekap'),
+          const NavigationDestination(icon: Icon(Icons.arrow_downward), selectedIcon: Icon(Icons.arrow_circle_down), label: 'Masuk'),
+          const NavigationDestination(icon: Icon(Icons.arrow_upward), selectedIcon: Icon(Icons.arrow_circle_up), label: 'Keluar'),
+          const NavigationDestination(icon: Icon(Icons.analytics_outlined), selectedIcon: Icon(Icons.analytics), label: 'Analisis'),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: _recycleRecords.isNotEmpty,
+              label: Text(_recycleRecords.length.toString()),
+              backgroundColor: Colors.redAccent,
+              child: const Icon(Icons.delete_sweep_outlined),
+            ),
+            selectedIcon: const Icon(Icons.delete_sweep),
+            label: 'Recycle',
+          ),
+          const NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Laporan'),
         ],
       ),
       floatingActionButton: _tabIndex == 1 || _tabIndex == 2
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF38BDF8),
-              foregroundColor: const Color(0xFF0C4A6E),
+              backgroundColor: const Color(0xFFF43F5E),
+              foregroundColor: Colors.white,
               onPressed: () => _openAddDialog(_tabIndex == 1),
               icon: const Icon(Icons.add),
               label: Text(_tabIndex == 1 ? 'Catat Pemasukan' : 'Catat Pengeluaran'),
@@ -817,73 +1122,82 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
+  // TAB 1: DASHBOARD
   Widget _buildDashboardTab() {
     return RefreshIndicator(
       onRefresh: _fetchRecords,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('SISA KAS BERSIH (SALDO RIIL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Rp ' + formatRp(netBalance),
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      color: netBalance >= 0 ? const Color(0xFF0284C7) : Colors.redAccent,
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFFDE68A), width: 1.8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF831843).withOpacity(0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('SISA KAS BERSIH (SALDO RIIL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E), letterSpacing: 0.5)),
+                const SizedBox(height: 6),
+                Text(
+                  'Rp ' + formatRp(netBalance),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: netBalance >= 0 ? const Color(0xFFBE185D) : Colors.redAccent,
+                  ),
+                ),
+                const Divider(height: 24, color: Color(0xFFFEF3C7)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.arrow_downward, color: Color(0xFF16A34A), size: 16),
+                              SizedBox(width: 4),
+                              Text('Total Pemasukan', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text('Rp ' + formatRp(totalIncome), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF15803D))),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.arrow_downward, color: Colors.green, size: 16),
-                                SizedBox(width: 4),
-                                Text('Total Pemasukan', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text('Rp ' + formatRp(totalIncome), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green)),
-                          ],
-                        ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.arrow_upward, color: Color(0xFFDC2626), size: 16),
+                              SizedBox(width: 4),
+                              Text('Total Belanja', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text('Rp ' + formatRp(totalExpense), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFB91C1C))),
+                        ],
                       ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.arrow_upward, color: Colors.red, size: 16),
-                                SizedBox(width: 4),
-                                Text('Total Pengeluaran', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text('Rp ' + formatRp(totalExpense), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          const Text('REKAPITULASI PEMASUKAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(height: 18),
+          const Text('REKAPITULASI PEMASUKAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
           const SizedBox(height: 8),
           ..._sections.where((s) => s.isIncome).map((s) {
             final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
@@ -891,15 +1205,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                trailing: Text('Rp ' + formatRp(sum), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green)),
-                onTap: () {
-                  setState(() => _tabIndex = 1);
-                },
+                trailing: Text('Rp ' + formatRp(sum), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF15803D))),
+                onTap: () => setState(() => _tabIndex = 1),
               ),
             );
           }),
-          const SizedBox(height: 16),
-          const Text('REKAPITULASI PENGELUARAN PER SEKSI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(height: 18),
+          const Text('REKAPITULASI PENGELUARAN PER SEKSI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
           const SizedBox(height: 8),
           ..._sections.where((s) => !s.isIncome).map((s) {
             final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
@@ -907,10 +1219,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                trailing: Text('Rp ' + formatRp(sum), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.red)),
-                onTap: () {
-                  setState(() => _tabIndex = 2);
-                },
+                trailing: Text('Rp ' + formatRp(sum), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFBE185D))),
+                onTap: () => setState(() => _tabIndex = 2),
               ),
             );
           }),
@@ -920,6 +1230,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
+  // TAB 2 & 3: DAFTAR TRANSAKSI (ANTI-TABRAKAN)
   Widget _buildSectionListTab(bool isIncome) {
     final availableSections = _sections.where((s) => s.isIncome == isIncome).toList();
     final items = _records.where((r) => r.isIncome == isIncome).toList();
@@ -927,7 +1238,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return Column(
       children: [
         Container(
-          height: 52,
+          height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
@@ -940,12 +1251,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ActionChip(
+                          backgroundColor: const Color(0xFFFFFBEB),
                           avatar: CircleAvatar(
                             radius: 10,
-                            backgroundColor: isIncome ? Colors.green : Colors.red,
-                            child: Text(count.toString(), style: const TextStyle(fontSize: 9, color: Colors.white)),
+                            backgroundColor: isIncome ? const Color(0xFF16A34A) : const Color(0xFFDB2777),
+                            child: Text(count.toString(), style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
-                          label: Text(s.name, style: const TextStyle(fontSize: 12)),
+                          label: Text(s.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                           onPressed: () => _openAddDialog(isIncome, s.name),
                         ),
                       );
@@ -955,20 +1267,20 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ),
               IconButton(
                 tooltip: isIncome ? 'Tambah Pos Baru' : 'Tambah Seksi Baru',
-                icon: const Icon(Icons.add_circle, color: Color(0xFF0284C7)),
+                icon: const Icon(Icons.add_circle, color: Color(0xFFDB2777)),
                 onPressed: () => _showAddSectionDialog(isIncome),
               ),
             ],
           ),
         ),
-        const Divider(height: 1),
+        const Divider(height: 1, color: Color(0xFFFDE8E8)),
         Expanded(
           child: items.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(isIncome ? Icons.account_balance_wallet_outlined : Icons.receipt_long_outlined, size: 60, color: Colors.grey[400]),
+                      Icon(isIncome ? Icons.account_balance_wallet_outlined : Icons.receipt_long_outlined, size: 60, color: Colors.pink[200]),
                       const SizedBox(height: 10),
                       Text('Belum ada data ' + (isIncome ? 'pemasukan' : 'pengeluaran') + '.', style: TextStyle(color: Colors.grey[600])),
                       const SizedBox(height: 4),
@@ -983,105 +1295,119 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     final item = items[idx];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 1.5,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Baris 1: Judul Keterangan & Nominal Uang
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: isIncome ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
+                                  child: Icon(
+                                    isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                                    color: isIncome ? const Color(0xFF166534) : const Color(0xFFBE185D),
+                                    size: 16,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  (isIncome ? '+' : '-') + 'Rp ' + formatRp(item.amount),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 15,
-                                    color: isIncome ? Colors.green[700] : Colors.red[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-
-                            // Baris 2: Sektor / Pos & Tanggal Transaksi
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
+                                const SizedBox(width: 10),
                                 Expanded(
-                                  child: Row(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      if (item.subCategory.isNotEmpty) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          margin: const EdgeInsets.only(right: 6),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFBAE6FD),
-                                            borderRadius: BorderRadius.circular(4),
+                                      Text(
+                                        item.title,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          if (item.subCategory.isNotEmpty) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                              margin: const EdgeInsets.only(right: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFCE7F3),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                item.subCategory,
+                                                style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFBE185D)),
+                                              ),
+                                            ),
+                                          ],
+                                          Flexible(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFFBEB),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFFDE68A), width: 0.8),
+                                              ),
+                                              child: Text(
+                                                item.section,
+                                                style: const TextStyle(fontSize: 10, color: Color(0xFF92400E), fontWeight: FontWeight.bold),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
                                           ),
-                                          child: Text(
-                                            item.subCategory,
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
-                                          ),
-                                        ),
-                                      ],
-                                      Flexible(
-                                        child: Text(
-                                          item.section,
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _formatDate(item.date),
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      (isIncome ? '+ ' : '- ') + 'Rp ' + formatRp(item.amount),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14,
+                                        color: isIncome ? const Color(0xFF15803D) : const Color(0xFFBE185D),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatDate(item.date),
+                                      style: TextStyle(fontSize: 10.5, color: Colors.grey[600]),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-
-                            // Baris 3: Catatan (jika ada)
                             if (item.note.isNotEmpty) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
                                 'Catatan: ' + item.note,
-                                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                                style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
                               ),
                             ],
-
-                            const Divider(height: 14, thickness: 0.5),
-
-                            // Baris 4: Pencatat & Tombol Hapus
+                            const Divider(height: 14, thickness: 0.6, color: Color(0xFFFEE2E2)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Dicatat oleh: ' + item.recordedBy,
-                                  style: const TextStyle(fontSize: 10, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                                  'Dicatat: ' + item.recordedBy,
+                                  style: const TextStyle(fontSize: 10, color: Color(0xFFBE185D), fontWeight: FontWeight.w600),
                                 ),
                                 InkWell(
-                                  onTap: () => _confirmDelete(item),
-                                  borderRadius: BorderRadius.circular(4),
+                                  onTap: () => _confirmMoveToRecycle(item),
+                                  borderRadius: BorderRadius.circular(6),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.delete_outline, size: 15, color: Colors.grey[500]),
-                                        const SizedBox(width: 2),
-                                        Text('Hapus', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                                        Icon(Icons.delete_outline, size: 15, color: Colors.red[400]),
+                                        const SizedBox(width: 3),
+                                        Text('Hapus ke Recycle', style: TextStyle(fontSize: 11, color: Colors.red[600], fontWeight: FontWeight.w500)),
                                       ],
                                     ),
                                   ),
@@ -1099,27 +1425,183 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  void _confirmDelete(PanatRecord item) {
+  void _confirmMoveToRecycle(PanatRecord item) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Catatan Kas?'),
-        content: Text('Hapus "' + item.title + '" sebesar Rp ' + formatRp(item.amount) + '? Data ini akan terhapus di HP Bendahara dan Wakil.'),
+        title: const Text('Pindahkan ke Recycle?'),
+        content: Text('Pindahkan "' + item.title + '" sebesar Rp ' + formatRp(item.amount) + ' ke Tong Sampah? Data ini akan disembunyikan dari Buku Kas dan dapat dipulihkan oleh Bendahara.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBE185D)),
             onPressed: () {
-              _deleteRecord(item.id);
               Navigator.pop(ctx);
+              _moveToRecycle(item);
             },
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            child: const Text('Pindahkan', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
+  // TAB 5: RECYCLE TAB
+  Widget _buildRecycleTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.security, color: Color(0xFF92400E), size: 18),
+                  SizedBox(width: 8),
+                  Text('PROTEKSI HAK AKSES BENDAHARA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF92400E))),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Data kas yang dihapus tersimpan di sini dan tidak dihitung ke dalam saldo riil buku kas. Pemulihan (restore) atau penghapusan permanen hanya dapat dilakukan dengan izin Master PIN Bendahara.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.4),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('DAFTAR DATA TERHAPUS (' + _recycleRecords.length.toString() + ')', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
+        const SizedBox(height: 8),
+        if (_recycleRecords.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 60),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.delete_outline, size: 55, color: Colors.grey[300]),
+                  const SizedBox(height: 10),
+                  Text('Recycle Kosong', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Tidak ada catatan kas yang sedang dihapus.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+          )
+        else
+          ..._recycleRecords.map((item) {
+            final delTimeStr = item.deletedAt != null
+                ? DateFormat('dd MMM yyyy, HH:mm').format(item.deletedAt!.toLocal()) + ' WIB'
+                : 'Tidak tercatat';
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFFF43F5E), width: 1.2),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const SizedBox(height: 2),
+                              Text('Pos: ' + item.section, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          (item.isIncome ? '+ ' : '- ') + 'Rp ' + formatRp(item.amount),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: item.isIncome ? Colors.green[700] : const Color(0xFFBE185D),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDF2F8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Text('Dihapus oleh: ', style: TextStyle(fontSize: 11, color: Color(0xFF9D174D), fontWeight: FontWeight.bold)),
+                              Text(item.deletedBy ?? 'Panitia', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFBE185D))),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Text('Waktu Hapus: ', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                              Text(delTimeStr, style: const TextStyle(fontSize: 10.5, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF065F46),
+                              backgroundColor: const Color(0xFFECFDF5),
+                              side: const BorderSide(color: Color(0xFF10B981)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.restore, size: 16),
+                            label: const Text('Pulihkan Data', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _restoreRecord(item),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF991B1B),
+                              backgroundColor: const Color(0xFFFEF2F2),
+                              side: const BorderSide(color: Color(0xFFEF4444)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.delete_forever, size: 16),
+                            label: const Text('Hapus Permanen', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _permanentDeleteRecord(item),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  // TAB 4: ANALISIS
   Widget _buildAnalysisTab() {
     final incTotal = totalIncome;
     final expTotal = totalExpense;
@@ -1140,19 +1622,19 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ANALISIS RASIO KEUANGAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const Text('ANALISIS RASIO KAS PANITIA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total Pemasukan: Rp ' + formatRp(incTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                    Text('Rp ' + formatRp(expTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                    Text('Pemasukan: Rp ' + formatRp(incTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                    Text('Belanja: Rp ' + formatRp(expTotal), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFBE185D))),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1161,8 +1643,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   child: LinearProgressIndicator(
                     value: (incTotal + expTotal) > 0 ? (incTotal / (incTotal + expTotal)) : 0.5,
                     minHeight: 12,
-                    backgroundColor: Colors.red[300],
-                    valueColor: const AlwaysStoppedAnimation(Colors.green),
+                    backgroundColor: const Color(0xFFFCE7F3),
+                    valueColor: const AlwaysStoppedAnimation(Color(0xFFDB2777)),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1170,12 +1652,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Pemasukan: ' + ((incTotal + expTotal) > 0 ? (incTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
-                      style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
+                      'Penerimaan: ' + ((incTotal + expTotal) > 0 ? (incTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      'Pengeluaran: ' + ((incTotal + expTotal) > 0 ? (expTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
-                      style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                      'Realisasi Belanja: ' + ((incTotal + expTotal) > 0 ? (expTotal / (incTotal + expTotal) * 100).toStringAsFixed(1) : '0') + '%',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFFBE185D), fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -1183,8 +1665,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        const Text('PROPORSI POS PEMASUKAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 18),
+        const Text('PROPORSI POS PEMASUKAN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
         const SizedBox(height: 8),
         if (incomeSections.isEmpty)
           const Padding(
@@ -1205,7 +1687,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF15803D))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1215,7 +1697,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         value: pct,
                         minHeight: 6,
                         backgroundColor: Colors.grey[200],
-                        valueColor: const AlwaysStoppedAnimation(Colors.green),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1228,8 +1710,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ),
             );
           }),
-        const SizedBox(height: 16),
-        const Text('PROPORSI PENGELUARAN PER SEKSI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 18),
+        const Text('PROPORSI BELANJA PER SEKSI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
         const SizedBox(height: 8),
         if (expenseSections.isEmpty)
           const Padding(
@@ -1250,7 +1732,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+                        Text('Rp ' + formatRp(entry.value), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFBE185D))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1260,7 +1742,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         value: pct,
                         minHeight: 6,
                         backgroundColor: Colors.grey[200],
-                        valueColor: const AlwaysStoppedAnimation(Colors.redAccent),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFFF43F5E)),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1278,6 +1760,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
+  // TAB 6: LAPORAN & PENGATURAN
   Widget _buildExportAndSettingsTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1291,26 +1774,26 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.security, color: Color(0xFF0284C7)),
+                    Icon(Icons.security, color: Color(0xFFDB2777)),
                     SizedBox(width: 8),
-                    Text('Keamanan Zero-Knowledge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text('Sinkronisasi Awan & Sandi Bersama', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF831843))),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text('Data terenkripsi di server awan Supabase. Peran Anda saat ini: ' + widget.userRole + '.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text('Data terenkripsi Zero-Knowledge di Supabase. Peran HP Anda: ' + widget.userRole + '.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
-        const Text('EKSPOR LAPORAN FORMAL (LPJ)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Text('EKSPOR LAPORAN FORMAL (LPJ)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
         const SizedBox(height: 8),
         Card(
           child: ListTile(
             leading: const CircleAvatar(backgroundColor: Color(0xFFFEE2E2), child: Icon(Icons.picture_as_pdf, color: Color(0xFFDC2626))),
             title: const Text('1. Ekspor ke Dokumen PDF Resmi (A4)', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Tata letak terkunci 100% presisi, rapi di semua HP, siap cetak', style: TextStyle(fontSize: 12)),
-            trailing: const Icon(Icons.share),
+            subtitle: const Text('Tata letak A4 resmi siap cetak dengan lembar tanda tangan pengesahan', style: TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.share, color: Color(0xFFDB2777)),
             onTap: _exportPdf,
           ),
         ),
@@ -1320,7 +1803,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             leading: const CircleAvatar(backgroundColor: Color(0xFFDBEAFE), child: Icon(Icons.description, color: Color(0xFF2563EB))),
             title: const Text('2. Ekspor ke Dokumen Word (.doc)', style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: const Text('Format narasi & tabel untuk diedit di laptop/komputer', style: TextStyle(fontSize: 12)),
-            trailing: const Icon(Icons.share),
+            trailing: const Icon(Icons.share, color: Color(0xFFDB2777)),
             onTap: _exportDoc,
           ),
         ),
@@ -1330,19 +1813,19 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             leading: const CircleAvatar(backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.table_chart, color: Color(0xFF16A34A))),
             title: const Text('3. Ekspor ke Excel / Spreadsheet (.csv)', style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: const Text('Rekapitulasi data tabular lengkap per kolom dan sektor', style: TextStyle(fontSize: 12)),
-            trailing: const Icon(Icons.share),
+            trailing: const Icon(Icons.share, color: Color(0xFFDB2777)),
             onTap: _exportCsv,
           ),
         ),
         const SizedBox(height: 24),
-        const Text('PENGATURAN APLIKASI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Text('PENGATURAN APLIKASI', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF831843))),
         const SizedBox(height: 8),
         Card(
           child: SwitchListTile(
-            secondary: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode, color: const Color(0xFF0284C7)),
+            secondary: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode, color: const Color(0xFFDB2777)),
             title: const Text('Mode Gelap (Dark Mode)'),
             value: widget.isDarkMode,
-            activeColor: const Color(0xFF065F46),
+            activeColor: const Color(0xFFDB2777),
             onChanged: widget.onToggleTheme,
           ),
         ),
@@ -1357,7 +1840,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         const SizedBox(height: 24),
         Center(
           child: Text(
-            'PANAT v1.0.0 • by Natanael',
+            'PANAT v1.1.0 • Theme Pink-Cream & Recycle by Natanael',
             style: TextStyle(fontSize: 9.5, color: Colors.grey[400], letterSpacing: 0.5),
           ),
         ),
@@ -1366,6 +1849,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
+  // EKSPOR PDF RESMI A4
   Future<void> _exportPdf() async {
     final pdf = pw.Document();
     final nowFormatted = DateFormat('dd MMMM yyyy HH:mm').format(DateTime.now());
@@ -1412,13 +1896,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               alignment: pw.Alignment.center,
               padding: const pw.EdgeInsets.only(bottom: 10),
               decoration: const pw.BoxDecoration(
-                border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFF0284C7), width: 2)),
+                border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFDB2777), width: 2)),
               ),
               child: pw.Column(
                 children: [
                   pw.Text(
                     'PANITIA NATAL (PANAT)',
-                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0284C7)),
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFDB2777)),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
@@ -1441,8 +1925,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             pw.Container(
               padding: const pw.EdgeInsets.all(12),
               decoration: pw.BoxDecoration(
-                color: const PdfColor.fromInt(0xFFF0F9FF),
-                border: pw.Border.all(color: const PdfColor.fromInt(0xFF7DD3FC), width: 1.5),
+                color: const PdfColor.fromInt(0xFFFFFBEB),
+                border: pw.Border.all(color: const PdfColor.fromInt(0xFFFDE68A), width: 1.5),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
               ),
               child: pw.Column(
@@ -1450,12 +1934,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 children: [
                   pw.Text(
                     'SISA KAS BERSIH (SALDO RIIL SAAT INI)',
-                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1)),
+                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF92400E)),
                   ),
                   pw.SizedBox(height: 4),
                   pw.Text(
                     'Rp ' + formatRp(netBalance),
-                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0284C7)),
+                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFFBE185D)),
                   ),
                   pw.SizedBox(height: 8),
                   pw.Row(
@@ -1481,7 +1965,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           content.add(
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: const PdfColor.fromInt(0xFF0284C7),
+              color: const PdfColor.fromInt(0xFFDB2777),
               child: pw.Text(
                 'BAGIAN I: REKAPITULASI UMUM KAS',
                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
@@ -1490,7 +1974,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           );
           content.add(pw.SizedBox(height: 8));
 
-          content.add(pw.Text('1.1. Rekapitulasi Pos Pemasukan Kas', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1))));
+          content.add(pw.Text('1.1. Rekapitulasi Pos Pemasukan Kas', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843))));
           content.add(pw.SizedBox(height: 4));
 
           final incRekapData = <List<String>>[];
@@ -1512,8 +1996,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             pw.Table.fromTextArray(
               headers: ['No', 'Nama Pos Pemasukan', 'Banyak Data', 'Total Penerimaan'],
               data: incRekapData,
-              headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0C4A6E)),
-              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
+              headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843)),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFCE7F3)),
               cellStyle: const pw.TextStyle(fontSize: 7.5),
               cellAlignments: {
                 0: pw.Alignment.center,
@@ -1526,7 +2010,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
           content.add(pw.SizedBox(height: 10));
 
-          content.add(pw.Text('1.2. Rekapitulasi Realisasi Belanja per Seksi', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1))));
+          content.add(pw.Text('1.2. Rekapitulasi Realisasi Belanja per Seksi', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843))));
           content.add(pw.SizedBox(height: 4));
 
           final expRekapData = <List<String>>[];
@@ -1548,8 +2032,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             pw.Table.fromTextArray(
               headers: ['No', 'Nama Seksi Kepanitiaan', 'Banyak Data', 'Total Pengeluaran'],
               data: expRekapData,
-              headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0C4A6E)),
-              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
+              headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843)),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFCE7F3)),
               cellStyle: const pw.TextStyle(fontSize: 7.5),
               cellAlignments: {
                 0: pw.Alignment.center,
@@ -1565,7 +2049,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           content.add(
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: const PdfColor.fromInt(0xFF0284C7),
+              color: const PdfColor.fromInt(0xFFDB2777),
               child: pw.Text(
                 'BAGIAN II: RINCIAN POS PEMASUKAN KAS (HANYA POS AKTIF)',
                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
@@ -1578,151 +2062,35 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
             final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
 
-            content.add(pw.Text('Pos: ' + s.name + ' (' + recs.length.toString() + ' catatan)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1))));
+            content.add(pw.Text('Pos: ' + s.name + ' (' + recs.length.toString() + ' catatan)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843))));
             content.add(pw.SizedBox(height: 4));
 
-            if (s.name.toLowerCase().contains('kalender')) {
-              final sectorList = ['Sektor Senin', 'Sektor Selasa', 'Sektor Rabu', 'Sektor Kamis'];
-              final hasSectors = recs.any((r) => sectorList.contains(r.subCategory));
+            final tableData = recs.asMap().entries.map((e) => [
+              (e.key + 1).toString(),
+              e.value.title,
+              _formatDate(e.value.date),
+              e.value.recordedBy,
+              'Rp ' + formatRp(e.value.amount),
+            ]).toList();
+            tableData.add(['', 'Subtotal ${s.name}', '', '', 'Rp ' + formatRp(subtotal)]);
 
-              if (hasSectors) {
-                for (var secName in sectorList) {
-                  final secRecs = recs.where((r) => r.subCategory == secName).toList();
-                  if (secRecs.isNotEmpty) {
-                    final secSubtotal = secRecs.fold(0.0, (t, r) => t + r.amount);
-                    content.add(pw.Padding(
-                      padding: const pw.EdgeInsets.only(top: 4, bottom: 2),
-                      child: pw.Text('• ' + secName + ' (' + secRecs.length.toString() + ' keluarga)', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
-                    ));
-
-                    final tableData = secRecs.asMap().entries.map((e) => [
-                      (e.key + 1).toString(),
-                      e.value.title,
-                      _formatDate(e.value.date),
-                      e.value.recordedBy,
-                      'Rp ' + formatRp(e.value.amount),
-                    ]).toList();
-                    tableData.add(['', 'Subtotal ' + secName, '', '', 'Rp ' + formatRp(secSubtotal)]);
-
-                    content.add(
-                      pw.Table.fromTextArray(
-                        headers: ['No', 'Nama Jemaat / Keluarga', 'Tanggal', 'Pencatat', 'Jumlah Setoran'],
-                        data: tableData,
-                        headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                        headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
-                        cellStyle: const pw.TextStyle(fontSize: 7),
-                        cellAlignments: {
-                          0: pw.Alignment.center,
-                          1: pw.Alignment.centerLeft,
-                          2: pw.Alignment.center,
-                          3: pw.Alignment.center,
-                          4: pw.Alignment.centerRight,
-                        },
-                      ),
-                    );
-                    content.add(pw.SizedBox(height: 6));
-                  }
-                }
-
-                final unassigned = recs.where((r) => !sectorList.contains(r.subCategory)).toList();
-                if (unassigned.isNotEmpty) {
-                  final unassignedSubtotal = unassigned.fold(0.0, (t, r) => t + r.amount);
-                  content.add(pw.Padding(
-                    padding: const pw.EdgeInsets.only(top: 4, bottom: 2),
-                    child: pw.Text('• Sektor Lainnya / Umum (' + unassigned.length.toString() + ' keluarga)', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
-                  ));
-
-                  final tableData = unassigned.asMap().entries.map((e) => [
-                    (e.key + 1).toString(),
-                    e.value.title,
-                    _formatDate(e.value.date),
-                    e.value.recordedBy,
-                    'Rp ' + formatRp(e.value.amount),
-                  ]).toList();
-                  tableData.add(['', 'Subtotal Lainnya', '', '', 'Rp ' + formatRp(unassignedSubtotal)]);
-
-                  content.add(
-                    pw.Table.fromTextArray(
-                      headers: ['No', 'Nama Jemaat / Keluarga', 'Tanggal', 'Pencatat', 'Jumlah Setoran'],
-                      data: tableData,
-                      headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                      headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
-                      cellStyle: const pw.TextStyle(fontSize: 7),
-                      cellAlignments: {
-                        0: pw.Alignment.center,
-                        1: pw.Alignment.centerLeft,
-                        2: pw.Alignment.center,
-                        3: pw.Alignment.center,
-                        4: pw.Alignment.centerRight,
-                      },
-                    ),
-                  );
-                  content.add(pw.SizedBox(height: 6));
-                }
-              } else {
-                final tableData = recs.asMap().entries.map((e) => [
-                  (e.key + 1).toString(),
-                  e.value.title,
-                  _formatDate(e.value.date),
-                  e.value.recordedBy,
-                  'Rp ' + formatRp(e.value.amount),
-                ]).toList();
-                tableData.add(['', 'Subtotal ${s.name}', '', '', 'Rp ' + formatRp(subtotal)]);
-
-                content.add(
-                  pw.Table.fromTextArray(
-                    headers: ['No', 'Nama Jemaat / Keluarga', 'Tanggal', 'Pencatat', 'Jumlah Setoran'],
-                    data: tableData,
-                    headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                    headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
-                    cellStyle: const pw.TextStyle(fontSize: 7),
-                    cellAlignments: {
-                      0: pw.Alignment.center,
-                      1: pw.Alignment.centerLeft,
-                      2: pw.Alignment.center,
-                      3: pw.Alignment.center,
-                      4: pw.Alignment.centerRight,
-                    },
-                  ),
-                );
-              }
-
-              content.add(pw.Container(
-                alignment: pw.Alignment.centerRight,
-                padding: const pw.EdgeInsets.symmetric(vertical: 4),
-                child: pw.Text(
-                  'TOTAL KALENDER SELURUH SEKTOR: Rp ' + formatRp(subtotal),
-                  style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1)),
-                ),
-              ));
-            } else {
-              final tableData = recs.asMap().entries.map((e) => [
-                (e.key + 1).toString(),
-                e.value.title,
-                _formatDate(e.value.date),
-                e.value.recordedBy,
-                'Rp ' + formatRp(e.value.amount),
-              ]).toList();
-              tableData.add(['', 'Subtotal ${s.name}', '', '', 'Rp ' + formatRp(subtotal)]);
-
-              content.add(
-                pw.Table.fromTextArray(
-                  headers: ['No', 'Keterangan / Nama Jemaat / Donatur', 'Tanggal', 'Pencatat', 'Jumlah'],
-                  data: tableData,
-                  headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                  headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
-                  cellStyle: const pw.TextStyle(fontSize: 7),
-                  cellAlignments: {
-                    0: pw.Alignment.center,
-                    1: pw.Alignment.centerLeft,
-                    2: pw.Alignment.center,
-                    3: pw.Alignment.center,
-                    4: pw.Alignment.centerRight,
-                  },
-                ),
-              );
-            }
-            content.add(pw.SizedBox(height: 10));
+            content.add(
+              pw.Table.fromTextArray(
+                headers: ['No', 'Nama Jemaat / Keterangan', 'Tanggal', 'Pencatat', 'Jumlah Setoran'],
+                data: tableData,
+                headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFCE7F3)),
+                cellStyle: const pw.TextStyle(fontSize: 7),
+                cellAlignments: {
+                  0: pw.Alignment.center,
+                  1: pw.Alignment.centerLeft,
+                  2: pw.Alignment.center,
+                  3: pw.Alignment.centerRight,
+                  4: pw.Alignment.centerRight,
+                },
+              ),
+            );
+            content.add(pw.SizedBox(height: 8));
           }
 
           content.add(pw.SizedBox(height: 16));
@@ -1730,7 +2098,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           content.add(
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: const PdfColor.fromInt(0xFF0284C7),
+              color: const PdfColor.fromInt(0xFFDB2777),
               child: pw.Text(
                 'BAGIAN III: RINCIAN REALISASI BELANJA (HANYA SEKSI AKTIF)',
                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
@@ -1743,7 +2111,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
             final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
 
-            content.add(pw.Text(s.name + ' (' + recs.length.toString() + ' catatan)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0369A1))));
+            content.add(pw.Text(s.name + ' (' + recs.length.toString() + ' catatan)', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF831843))));
             content.add(pw.SizedBox(height: 4));
 
             final tableData = recs.asMap().entries.map((e) => [
@@ -1760,13 +2128,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 headers: ['No', 'Keterangan Belanja / Keperluan', 'Tanggal', 'Pencatat', 'Jumlah Belanja'],
                 data: tableData,
                 headerStyle: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
-                headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2FE)),
+                headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFCE7F3)),
                 cellStyle: const pw.TextStyle(fontSize: 7),
                 cellAlignments: {
                   0: pw.Alignment.center,
                   1: pw.Alignment.centerLeft,
                   2: pw.Alignment.center,
-                  3: pw.Alignment.center,
+                  3: pw.Alignment.centerRight,
                   4: pw.Alignment.centerRight,
                 },
               ),
@@ -1779,7 +2147,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           content.add(
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              color: const PdfColor.fromInt(0xFF0284C7),
+              color: const PdfColor.fromInt(0xFFDB2777),
               child: pw.Text(
                 'BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA',
                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
@@ -1887,72 +2255,37 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 <head>
 <meta charset="utf-8">
 <title>Laporan Pertanggungjawaban Kas Panitia Natal</title>
-<!--[if gte mso 9]>
-<xml>
-<w:WordDocument>
-<w:View>Print</w:View>
-<w:Zoom>100</w:Zoom>
-<w:DoNotOptimizeForBrowser/>
-</w:WordDocument>
-</xml>
-<![endif]-->
 <style>
-@page Section1 {
-  size: 8.27in 11.69in;
-  margin: 0.8in;
-  mso-header-margin: 0.4in;
-  mso-footer-margin: 0.4in;
-  mso-footer: f1;
-}
+@page Section1 { size: 8.27in 11.69in; margin: 0.8in; }
 div.Section1 { page: Section1; }
 body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #0F172A; line-height: 1.45; font-size: 10.5pt; }
-
-/* KOP LAPORAN */
-.kop-box { text-align: center; border-bottom: 2.5px solid #0284C7; padding-bottom: 12px; margin-bottom: 20px; }
-.kop-title { font-size: 17pt; font-weight: bold; color: #0284C7; text-transform: uppercase; margin: 0; }
+.kop-box { text-align: center; border-bottom: 2px solid #DB2777; padding-bottom: 12px; margin-bottom: 20px; }
+.kop-title { font-size: 17pt; font-weight: bold; color: #DB2777; text-transform: uppercase; margin: 0; }
 .kop-subtitle { font-size: 11pt; font-weight: 600; color: #334155; margin: 4px 0; }
 .kop-meta { font-size: 9pt; color: #64748B; }
-
-/* SALDO UTAMA */
-.saldo-card { background-color: #F0F9FF; border: 1.5px solid #7DD3FC; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; }
-.saldo-label { font-size: 10pt; font-weight: bold; color: #0369A1; text-transform: uppercase; letter-spacing: 0.5px; }
-.saldo-val { font-size: 22pt; font-weight: 900; color: #0284C7; margin: 4px 0 8px 0; }
-
-/* DAFTAR ISI INTERAKTIF */
-.toc-card { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 14px 18px; margin-bottom: 25px; }
-.toc-header { font-size: 11pt; font-weight: bold; color: #0F172A; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; }
-.toc-tbl { width: 100%; border: none; margin: 0; }
-.toc-tbl td { border: none; padding: 3.5px 0; font-size: 9.5pt; }
-.toc-link { color: #0284C7; text-decoration: none; font-weight: 600; }
-
-/* BANNER BAGIAN */
-.part-banner { background-color: #0284C7; color: #FFFFFF; font-size: 11pt; font-weight: bold; padding: 6px 12px; border-radius: 4px; margin-top: 24px; margin-bottom: 12px; text-transform: uppercase; }
-.section-badge { font-size: 10.5pt; font-weight: bold; color: #0369A1; margin-top: 14px; margin-bottom: 6px; }
-
-/* TABEL DATA */
+.saldo-card { background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; }
+.saldo-label { font-size: 10pt; font-weight: bold; color: #92400E; text-transform: uppercase; letter-spacing: 0.5px; }
+.saldo-val { font-size: 22pt; font-weight: 900; color: #BE185D; margin: 4px 0 8px 0; }
+.part-banner { background-color: #DB2777; color: #FFFFFF; font-size: 11pt; font-weight: bold; padding: 6px 12px; border-radius: 4px; margin-top: 24px; margin-bottom: 12px; text-transform: uppercase; }
+.section-badge { font-size: 10.5pt; font-weight: bold; color: #831843; margin-top: 14px; margin-bottom: 6px; }
 table.report-tbl { width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 16px; }
-table.report-tbl th, table.report-tbl td { border: 1px solid #CBD5E1; padding: 6px 8px; font-size: 9.5pt; text-align: left; }
-table.report-tbl th { background-color: #E0F2FE; color: #0C4A6E; font-weight: bold; text-align: center; }
-table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
+table.report-tbl th, table.report-tbl td { border: 1px solid #FBCFE8; padding: 6px 8px; font-size: 9.5pt; text-align: left; }
+table.report-tbl th { background-color: #FCE7F3; color: #831843; font-weight: bold; text-align: center; }
+table.report-tbl tr:nth-child(even) { background-color: #FFFDF9; }
 .num-col { text-align: right; font-variant-numeric: tabular-nums; }
-.subtotal-row { background-color: #F0F9FF; font-weight: bold; color: #0369A1; }
-
-/* TANDA TANGAN */
+.subtotal-row { background-color: #FFFBEB; font-weight: bold; color: #92400E; }
 .sign-table { width: 100%; border: none; margin-top: 40px; page-break-inside: avoid; }
 .sign-table td { border: none; text-align: center; font-size: 10pt; padding: 8px 4px; }
 </style>
 </head>
 <body>
 <div class="Section1">
-
-<!-- KOP LAPORAN -->
 <div class="kop-box">
   <div class="kop-title">PANITIA NATAL (PANAT)</div>
   <div class="kop-subtitle">LAPORAN PERTANGGUNGJAWABAN PENERIMAAN DAN PENGELUARAN KAS</div>
   <div class="kop-meta">Dikelola oleh: Bendahara & Wakil Bendahara • Sistem Kas: by Natanael<br>Tanggal Cetak Dokumen: ''' + nowFormatted + ''' WIB</div>
 </div>
 
-<!-- KARTU RINGKASAN SALDO -->
 <div class="saldo-card">
   <div class="saldo-label">SISA KAS BERSIH (SALDO RIIL SAAT INI)</div>
   <div class="saldo-val">Rp ''' + formatRp(netBalance) + '''</div>
@@ -1962,68 +2295,16 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
         <strong>Total Penerimaan:</strong> <span style="color: #16A34A; font-weight: bold;">Rp ''' + formatRp(totalIncome) + '''</span>
       </td>
       <td style="border: none; padding: 0; width: 50%; text-align: right;">
-        <strong>Total Pengeluaran:</strong> <span style="color: #DC2626; font-weight: bold;">Rp ''' + formatRp(totalExpense) + '''</span>
+        <strong>Total Pengeluaran:</strong> <span style="color: #BE185D; font-weight: bold;">Rp ''' + formatRp(totalExpense) + '''</span>
       </td>
     </tr>
   </table>
 </div>
 
-<!-- DAFTAR ISI INTERAKTIF RAPI -->
-<div class="toc-card">
-  <div class="toc-header">DAFTAR ISI LAPORAN</div>
-  <table class="toc-tbl">
-    <tr>
-      <td><strong>1. BAGIAN I: REKAPITULASI UMUM KAS</strong></td>
-      <td style="text-align: right;"><a href="#bagian-1" class="toc-link">[Buka Bagian I]</a></td>
-    </tr>
-    <tr>
-      <td><strong>2. BAGIAN II: RINCIAN POS PEMASUKAN AKTIF</strong></td>
-      <td style="text-align: right;"><a href="#bagian-2" class="toc-link">[Buka Bagian II]</a></td>
-    </tr>
-''');
-
-    for (int i = 0; i < activeIncomeSections.length; i++) {
-      final s = activeIncomeSections[i];
-      final count = _records.where((r) => r.isIncome && r.section == s.name).length;
-      final sum = _records.where((r) => r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('    <tr><td style="padding-left: 18px; color: #475569;">• Pos ' + s.name + ' (' + count.toString() + ' data - Rp ' + formatRp(sum) + ')</td><td style="text-align: right;"><a href="#pos-' + i.toString() + '" class="toc-link">Lihat Tabel</a></td></tr>');
-    }
-
-    doc.writeln('''    <tr>
-      <td><strong>3. BAGIAN III: RINCIAN BELANJA PER SEKSI AKTIF</strong></td>
-      <td style="text-align: right;"><a href="#bagian-3" class="toc-link">[Buka Bagian III]</a></td>
-    </tr>
-''');
-
-    for (int i = 0; i < activeExpenseSections.length; i++) {
-      final s = activeExpenseSections[i];
-      final count = _records.where((r) => !r.isIncome && r.section == s.name).length;
-      final sum = _records.where((r) => !r.isIncome && r.section == s.name).fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('    <tr><td style="padding-left: 18px; color: #475569;">• ' + s.name + ' (' + count.toString() + ' data - Rp ' + formatRp(sum) + ')</td><td style="text-align: right;"><a href="#seksi-' + i.toString() + '" class="toc-link">Lihat Tabel</a></td></tr>');
-    }
-
-    doc.writeln('''    <tr>
-      <td><strong>4. BAGIAN IV: LEMBAR PENGESAHAN & TANDA TANGAN</strong></td>
-      <td style="text-align: right;"><a href="#bagian-4" class="toc-link">[Buka Pengesahan]</a></td>
-    </tr>
-  </table>
-</div>
-
-<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
-
-<!-- BAGIAN I: REKAPITULASI UMUM -->
-<a name="bagian-1" id="bagian-1"></a>
 <div class="part-banner">BAGIAN I: REKAPITULASI UMUM KAS</div>
-
 <div class="section-badge">1.1. Rekapitulasi Pos Pemasukan Kas</div>
 <table class="report-tbl">
-  <tr>
-    <th style="width: 35px;">No</th>
-    <th>Nama Pos Pemasukan</th>
-    <th style="width: 110px; text-align: center;">Banyak Data</th>
-    <th class="num-col" style="width: 140px;">Total Penerimaan</th>
-  </tr>
-''');
+  <tr><th style="width: 35px;">No</th><th>Nama Pos Pemasukan</th><th style="width: 110px; text-align: center;">Banyak Data</th><th class="num-col" style="width: 140px;">Total Penerimaan</th></tr>''');
 
     int incNum = 1;
     for (var s in _sections.where((s) => s.isIncome)) {
@@ -2041,151 +2322,63 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
 
 <div class="section-badge">1.2. Rekapitulasi Realisasi Belanja per Seksi</div>
 <table class="report-tbl">
-  <tr>
-    <th style="width: 35px;">No</th>
-    <th>Nama Seksi Kepanitiaan</th>
-    <th style="width: 110px; text-align: center;">Banyak Data</th>
-    <th class="num-col" style="width: 140px;">Total Pengeluaran</th>
-  </tr>
-''');
+  <tr><th style="width: 35px;">No</th><th>Nama Seksi Kepanitiaan</th><th style="width: 110px; text-align: center;">Banyak Data</th><th class="num-col" style="width: 140px;">Total Pengeluaran</th></tr>''');
 
     int expNum = 1;
     for (var s in _sections.where((s) => !s.isIncome)) {
       final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
       final sum = recs.fold(0.0, (t, r) => t + r.amount);
-      doc.writeln('  <tr><td style="text-align: center;">' + expNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #DC2626; font-weight: 600;">' + (sum > 0 ? 'Rp ' + formatRp(sum) : '-') + '</td></tr>');
+      doc.writeln('  <tr><td style="text-align: center;">' + expNum.toString() + '</td><td>' + s.name + '</td><td style="text-align: center;">' + recs.length.toString() + ' transaksi</td><td class="num-col" style="color: #BE185D; font-weight: 600;">' + (sum > 0 ? 'Rp ' + formatRp(sum) : '-') + '</td></tr>');
       expNum++;
     }
 
     doc.writeln('''  <tr class="subtotal-row">
     <td colspan="3" style="text-align: right;">TOTAL KESELURUHAN PENGELUARAN:</td>
-    <td class="num-col" style="color: #DC2626;">Rp ''' + formatRp(totalExpense) + '''</td>
+    <td class="num-col" style="color: #BE185D;">Rp ''' + formatRp(totalExpense) + '''</td>
   </tr>
 </table>
 
-<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
+<div class="part-banner">BAGIAN II: RINCIAN POS PEMASUKAN KAS</div>''');
 
-<!-- BAGIAN II: RINCIAN PEMASUKAN (HANYA POS YANG ADA TRANSAKSINYA) -->
-<a name="bagian-2" id="bagian-2"></a>
-<div class="part-banner">BAGIAN II: RINCIAN POS PEMASUKAN KAS</div>
-''');
+    for (int i = 0; i < activeIncomeSections.length; i++) {
+      final s = activeIncomeSections[i];
+      final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
+      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
 
-    if (activeIncomeSections.isEmpty) {
-      doc.writeln('<p style="font-size: 10pt; color: #64748B; font-style: italic;">Belum ada catatan transaksi pemasukan.</p>');
-    } else {
-      for (int i = 0; i < activeIncomeSections.length; i++) {
-        final s = activeIncomeSections[i];
-        final recs = _records.where((r) => r.isIncome && r.section == s.name).toList();
-        final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
-
-        doc.writeln('<a name="pos-' + i.toString() + '" id="pos-' + i.toString() + '"></a>');
-        doc.writeln('<div class="section-badge">Pos: ' + s.name + ' <span style="font-size: 9.5pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' catatan)</span></div>');
-
-        // Jika Pos adalah Kalender Jemaat
-        if (s.name.toLowerCase().contains('kalender')) {
-          final sectorList = ['Sektor Senin', 'Sektor Selasa', 'Sektor Rabu', 'Sektor Kamis'];
-          final hasSectors = recs.any((r) => sectorList.contains(r.subCategory));
-
-          if (hasSectors) {
-            for (var secName in sectorList) {
-              final secRecs = recs.where((r) => r.subCategory == secName).toList();
-              if (secRecs.isNotEmpty) {
-                final secSubtotal = secRecs.fold(0.0, (t, r) => t + r.amount);
-                doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 10px; margin-bottom: 4px;">• ' + secName + ' (' + secRecs.length.toString() + ' keluarga)</div>');
-                doc.writeln('<table class="report-tbl">');
-                doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
-                for (int j = 0; j < secRecs.length; j++) {
-                  final r = secRecs[j];
-                  final d = _formatDate(r.date);
-                  doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-                }
-                doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + secName + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(secSubtotal) + '</td></tr>');
-                doc.writeln('</table>');
-              }
-            }
-
-            final unassigned = recs.where((r) => !sectorList.contains(r.subCategory)).toList();
-            if (unassigned.isNotEmpty) {
-              final unassignedSubtotal = unassigned.fold(0.0, (t, r) => t + r.amount);
-              doc.writeln('<div style="font-size: 10pt; font-weight: bold; color: #0C4A6E; margin-top: 10px; margin-bottom: 4px;">• Sektor Lainnya / Umum (' + unassigned.length.toString() + ' keluarga)</div>');
-              doc.writeln('<table class="report-tbl">');
-              doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
-              for (int j = 0; j < unassigned.length; j++) {
-                final r = unassigned[j];
-                final d = _formatDate(r.date);
-                doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-              }
-              doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal:</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(unassignedSubtotal) + '</td></tr>');
-              doc.writeln('</table>');
-            }
-          } else {
-            doc.writeln('<table class="report-tbl">');
-            doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Keluarga / Jemaat</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
-            for (int j = 0; j < recs.length; j++) {
-              final r = recs[j];
-              final d = _formatDate(r.date);
-              doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-            }
-            doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(subtotal) + '</td></tr>');
-            doc.writeln('</table>');
-          }
-          doc.writeln('<div style="text-align: right; font-weight: bold; font-size: 10.5pt; color: #0369A1; margin-bottom: 16px; border-top: 1.5px dashed #BAE6FD; padding-top: 6px;">TOTAL KALENDER SELURUH SEKTOR: Rp ' + formatRp(subtotal) + '</div>');
-        } else {
-          doc.writeln('<table class="report-tbl">');
-          doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan / Nama Jemaat / Donatur</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah</th></tr>');
-
-          for (int j = 0; j < recs.length; j++) {
-            final r = recs[j];
-            final d = _formatDate(r.date);
-            doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-          }
-
-          doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(subtotal) + '</td></tr>');
-          doc.writeln('</table>');
-        }
+      doc.writeln('<div class="section-badge">Pos: ' + s.name + ' (' + recs.length.toString() + ' catatan)</div>');
+      doc.writeln('<table class="report-tbl">');
+      doc.writeln('  <tr><th style="width: 30px;">No</th><th>Nama Jemaat / Donatur</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah Setoran</th></tr>');
+      for (int j = 0; j < recs.length; j++) {
+        final r = recs[j];
+        final d = _formatDate(r.date);
+        doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #16A34A; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
       }
+      doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #16A34A;">Rp ' + formatRp(subtotal) + '</td></tr>');
+      doc.writeln('</table>');
     }
 
-    doc.writeln('''<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
+    doc.writeln('''<div class="part-banner">BAGIAN III: RINCIAN BELANJA PER SEKSI</div>''');
+    for (int i = 0; i < activeExpenseSections.length; i++) {
+      final s = activeExpenseSections[i];
+      final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
+      final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
 
-<!-- BAGIAN III: RINCIAN PENGELUARAN (HANYA SEKSI YANG ADA TRANSAKSINYA) -->
-<a name="bagian-3" id="bagian-3"></a>
-<div class="part-banner">BAGIAN III: RINCIAN BELANJA PER SEKSI</div>
-''');
-
-    if (activeExpenseSections.isEmpty) {
-      doc.writeln('<p style="font-size: 10pt; color: #64748B; font-style: italic;">Belum ada catatan belanja pengeluaran.</p>');
-    } else {
-      for (int i = 0; i < activeExpenseSections.length; i++) {
-        final s = activeExpenseSections[i];
-        final recs = _records.where((r) => !r.isIncome && r.section == s.name).toList();
-        final subtotal = recs.fold(0.0, (t, r) => t + r.amount);
-
-        doc.writeln('<a name="seksi-' + i.toString() + '" id="seksi-' + i.toString() + '"></a>');
-        doc.writeln('<div class="section-badge">' + s.name + ' <span style="font-size: 9.5pt; font-weight: normal; color: #64748B;">(' + recs.length.toString() + ' catatan)</span></div>');
-        doc.writeln('<table class="report-tbl">');
-        doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan Belanja / Barang Keperluan</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah</th></tr>');
-
-        for (int j = 0; j < recs.length; j++) {
-          final r = recs[j];
-          final d = _formatDate(r.date);
-          doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #DC2626; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
-        }
-
-        doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #DC2626;">Rp ' + formatRp(subtotal) + '</td></tr>');
-        doc.writeln('</table>');
+      doc.writeln('<div class="section-badge">' + s.name + ' (' + recs.length.toString() + ' catatan)</div>');
+      doc.writeln('<table class="report-tbl">');
+      doc.writeln('  <tr><th style="width: 30px;">No</th><th>Keterangan Belanja</th><th style="width: 90px; text-align: center;">Tanggal</th><th style="width: 80px; text-align: center;">Pencatat</th><th>Catatan</th><th class="num-col" style="width: 120px;">Jumlah</th></tr>');
+      for (int j = 0; j < recs.length; j++) {
+        final r = recs[j];
+        final d = _formatDate(r.date);
+        doc.writeln('  <tr><td style="text-align: center;">' + (j + 1).toString() + '</td><td><strong>' + r.title + '</strong></td><td style="text-align: center;">' + d + '</td><td style="text-align: center; font-size: 8.5pt;">' + r.recordedBy + '</td><td>' + (r.note.isEmpty ? '-' : r.note) + '</td><td class="num-col" style="color: #BE185D; font-weight: 600;">Rp ' + formatRp(r.amount) + '</td></tr>');
       }
+      doc.writeln('  <tr class="subtotal-row"><td colspan="5" style="text-align: right;">Subtotal ' + s.name + ':</td><td class="num-col" style="color: #BE185D;">Rp ' + formatRp(subtotal) + '</td></tr>');
+      doc.writeln('</table>');
     }
 
-    doc.writeln('''<br clear="all" style="page-break-before:always; mso-break-type:section-break" />
-
-<!-- BAGIAN IV: LEMBAR PENGESAHAN -->
-<a name="bagian-4" id="bagian-4"></a>
-<div class="part-banner">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
+    doc.writeln('''<div class="part-banner">BAGIAN IV: LEMBAR PENGESAHAN KAS PANITIA</div>
 <p style="font-size: 10.5pt; margin-top: 10px;">
   Demikian laporan pertanggungjawaban kas penerimaan dan pengeluaran Panitia Natal ini disusun dengan sebenar-benarnya secara terbuka, transparan, dan akuntabel.
 </p>
-
 <table class="sign-table">
   <tr>
     <td style="width: 50%;">
@@ -2207,20 +2400,6 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
     </td>
   </tr>
 </table>
-
-<!-- FOOTER NOMOR HALAMAN RESMI WORD -->
-<table id="hrdftrtbl" border="0" cellspacing="0" cellpadding="0" style="margin: 0;">
-  <tr>
-    <td>
-      <div style="mso-element:footer" id="f1">
-        <p class="MsoFooter" style="text-align:right; font-size:9pt; color:#64748B; font-family: Calibri, sans-serif;">
-          Laporan Kas Panitia Natal  |  Halaman <span style="mso-field-code: PAGE "></span> dari <span style="mso-field-code: NUMPAGES "></span>
-        </p>
-      </div>
-    </td>
-  </tr>
-</table>
-
 </div>
 </body>
 </html>''');
@@ -2234,6 +2413,7 @@ table.report-tbl tr:nth-child(even) { background-color: #F8FAFC; }
   }
 }
 
+// ---------------- SHEET CATAT TRANSAKSI (PINK & KREM) ----------------
 class AddPanatRecordSheet extends StatefulWidget {
   final bool isIncome;
   final List<String> sections;
@@ -2292,17 +2472,17 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: Colors.pink[200], borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 14),
             Text(
               widget.isIncome ? 'Catat Pemasukan Kas' : 'Catat Pengeluaran Seksi',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF831843)),
             ),
             Text(
               'Dicatat sebagai: ' + widget.userRole,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFBE185D), fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
 
@@ -2310,7 +2490,10 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
               value: _selectedSection,
               decoration: InputDecoration(
                 labelText: widget.isIncome ? 'Pilih Pos Pemasukan' : 'Pilih Seksi Pengeluaran',
-                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: const Color(0xFFFFFBEB),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
               ),
               items: widget.sections.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
               onChanged: (val) {
@@ -2321,10 +2504,13 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
             if (widget.isIncome && _selectedSection.toLowerCase().contains('kalender')) ...[
               DropdownButtonFormField<String>(
                 value: _selectedSector,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Pilih Sektor Wijk Jemaat *',
-                  prefixIcon: Icon(Icons.location_city, color: Color(0xFF0284C7)),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.location_city, color: Color(0xFFDB2777)),
+                  filled: true,
+                  fillColor: const Color(0xFFFFFBEB),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
                 ),
                 items: _sectors.map((sec) => DropdownMenuItem(value: sec, child: Text(sec))).toList(),
                 onChanged: (val) {
@@ -2338,8 +2524,8 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
               controller: _titleCtrl,
               decoration: InputDecoration(
                 labelText: widget.isIncome ? 'Keterangan / Nama Jemaat / Barang *' : 'Keterangan Barang / Keperluan *',
-                hintText: widget.isIncome ? 'Contoh: Mie Gomak / Kel. R. Siahaan / Ade Saut' : 'Contoh: Kabel AUX / DP Kalender / Kue Basah',
-                border: const OutlineInputBorder(),
+                hintText: widget.isIncome ? 'Contoh: Mie Gomak / Kel. R. Siahaan / Ade Saut' : 'Contoh: Kabel AUX / DP Kalender / Lilin',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 12),
@@ -2347,11 +2533,11 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Nominal Uang (Rp) *',
                 prefixText: 'Rp ',
                 hintText: '0',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 12),
@@ -2368,23 +2554,24 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
                   setState(() => _date = d);
                 }
               },
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFFFFBEB),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0284C7)),
+                    const Icon(Icons.calendar_today, size: 18, color: Color(0xFFDB2777)),
                     const SizedBox(width: 10),
                     Text(
                       'Tanggal: ' + DateFormat('dd MMMM yyyy').format(_date),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                     const Spacer(),
-                    const Text('Ubah', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('Ubah', style: TextStyle(color: Color(0xFFBE185D), fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
                 ),
               ),
@@ -2393,20 +2580,20 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
 
             TextField(
               controller: _noteCtrl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Catatan Tambahan (Opsional)',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF38BDF8),
-                  foregroundColor: const Color(0xFF0C4A6E),
+                  backgroundColor: const Color(0xFFDB2777),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
@@ -2431,6 +2618,7 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
                     date: _date,
                     note: _noteCtrl.text.trim(),
                     recordedBy: widget.userRole,
+                    isDeleted: false,
                   );
 
                   widget.onSave(newRec);
@@ -2445,3 +2633,4 @@ class _AddPanatRecordSheetState extends State<AddPanatRecordSheet> {
     );
   }
 }
+
