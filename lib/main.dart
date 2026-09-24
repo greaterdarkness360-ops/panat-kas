@@ -207,7 +207,7 @@ class _PanatKasAppState extends State<PanatKasApp> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      
+      );
     final darkTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
