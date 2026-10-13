@@ -16,6 +16,9 @@ concurrency:
 
 jobs:
   deploy-web:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -34,16 +37,17 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # 2. RAKIT FLUTTER WEB (UNTUK IPHONE)
+      # 2. RAKIT FLUTTER WEB
       - name: Build Flutter Web
         run: flutter build web --release --base-href "/panat-kas/"
 
-      # 3. TERBITKAN OTOMATIS KE GITHUB PAGES
+      # 3. UNGGAH HASIL RAKITAN
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
+      # 4. TERBITKAN KE GITHUB PAGES
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
