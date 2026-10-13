@@ -33,14 +33,18 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # 1. SIAPKAN WADAH WEB OTOMATIS
+      - name: Enable Web Platform
+        run: flutter create . --platforms web
+
       - name: Install Dependencies
         run: flutter pub get
 
-      # 1. RAKIT FLUTTER WEB (UNTUK IPHONE)
+      # 2. RAKIT FLUTTER WEB (UNTUK IPHONE)
       - name: Build Flutter Web
         run: flutter build web --release --base-href "/panat-kas/"
 
-      # 2. TERBITKAN OTOMATIS KE GITHUB PAGES
+      # 3. TERBITKAN OTOMATIS KE GITHUB PAGES
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -50,7 +54,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      # 3. RAKIT APK (UNTUK ANDROID WAKIL BENDAHARA)
+      # 4. RAKIT APK (UNTUK ANDROID WAKIL BENDAHARA)
       - name: Build APK Release
         run: flutter build apk --release
 
