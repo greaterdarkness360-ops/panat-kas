@@ -1,4 +1,4 @@
-name: Build APK and Deploy Web
+name: Deploy Panat Kas Web
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -15,17 +15,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  deploy-web:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -33,7 +27,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 1. SIAPKAN WADAH WEB OTOMATIS
+      # 1. SIAPKAN WADAH WEB
       - name: Enable Web Platform
         run: flutter create . --platforms web
 
@@ -53,23 +47,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      # 4. RAKIT APK (UNTUK ANDROID WAKIL BENDAHARA)
-      - name: Build APK Release
-        run: flutter build apk --release
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Panat-Kas-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-        with:
-          tag_name: latest
-          name: "Panat Kas Terbaru"
-          files: build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
