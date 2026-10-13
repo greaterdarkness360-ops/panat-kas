@@ -1,13 +1,11 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -207,7 +205,9 @@ class _PanatKasAppState extends State<PanatKasApp> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      );
+
+    );
+
     final darkTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -2196,10 +2196,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
     try {
       final bytes = await pdf.save();
-      final dir = await getTemporaryDirectory();
-      final file = File(dir.path + '/Laporan_Kas_Panitia_Natal.pdf');
-      await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan Kas Panitia Natal (Dokumen Resmi PDF) by Natanael');
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'Laporan_Kas_Panitia_Natal.pdf',
+        mimeType: 'application/pdf',
+      );
+      await Share.shareXFiles([xfile], text: 'Laporan Kas Panitia Natal (Dokumen Resmi PDF) by Natanael');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2221,10 +2223,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
 
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File(dir.path + '/Laporan_Kas_Panitia_Natal.csv');
-      await file.writeAsString(csv.toString());
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan Kas Panitia Natal (Spreadsheet CSV) by Natanael');
+      final bytes = Uint8List.fromList(utf8.encode(csv.toString()));
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'Laporan_Kas_Panitia_Natal.csv',
+        mimeType: 'text/csv',
+      );
+      await Share.shareXFiles([xfile], text: 'Laporan Kas Panitia Natal (Spreadsheet CSV) by Natanael');
     } catch (_) {}
   }
 
@@ -2396,10 +2401,13 @@ table.report-tbl tr:nth-child(even) { background-color: #FFFDF9; }
 </html>''');
 
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File(dir.path + '/Laporan_Kas_Panitia_Natal.doc');
-      await file.writeAsString(doc.toString());
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan Kas Panitia Natal (Dokumen Word) by Natanael');
+      final bytes = Uint8List.fromList(utf8.encode(doc.toString()));
+      final xfile = XFile.fromData(
+        bytes,
+        name: 'Laporan_Kas_Panitia_Natal.doc',
+        mimeType: 'application/msword',
+      );
+      await Share.shareXFiles([xfile], text: 'Laporan Kas Panitia Natal (Dokumen Word) by Natanael');
     } catch (_) {}
   }
 }
